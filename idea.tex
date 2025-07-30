@@ -1,0 +1,302 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{geometry}
+\geometry{margin=1in}
+
+\title{AgentCodeEval: A Novel Benchmark for Evaluating Long-Context Language Models in Software Development Agent Tasks}
+\author{Research Proposal}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+We propose AgentCodeEval, a comprehensive benchmark for evaluating long-context language models (LLMs) in software development agent scenarios. Unlike existing code evaluation benchmarks that focus on single-function completion or isolated code understanding, AgentCodeEval addresses the critical gap in evaluating LLMs' ability to perform complex, multi-file software development tasks that require understanding large codebases, managing dependencies, and implementing features across multiple sessions. This benchmark targets real-world software development workflows where agents must navigate complex file structures, understand inter-module dependencies, and maintain architectural consistency across large-scale codebases.
+\end{abstract}
+
+\section{Introduction}
+
+\subsection{Motivation}
+Current long-context LLM evaluation benchmarks primarily focus on:
+\begin{itemize}
+    \item Single-function code completion (HumanEval, MBPP)
+    \item Document retrieval and question-answering
+    \item Synthetic needle-in-haystack tasks
+    \item Mathematical reasoning over long sequences
+\end{itemize}
+
+However, these benchmarks fail to capture the complexity of real-world software development agent tasks, which require:
+\begin{itemize}
+    \item Multi-file codebase understanding
+    \item Cross-module dependency management
+    \item Architectural pattern recognition and maintenance
+    \item Multi-session development workflows
+    \item Integration of new features into existing systems
+\end{itemize}
+
+\subsection{Research Gap}
+No existing benchmark comprehensively evaluates long-context LLMs in the software development agent domain, despite the growing importance of AI-powered development tools.
+
+\section{AgentCodeEval: Benchmark Design}
+
+\subsection{Core Concept}
+AgentCodeEval evaluates LLMs on realistic software development scenarios that span multiple files, require understanding of complex dependencies, and simulate multi-session development workflows.
+
+\subsection{Key Design Principles}
+\begin{enumerate}
+    \item \textbf{Real-world Relevance}: Tasks mirror actual software development workflows
+    \item \textbf{Multi-file Complexity}: Each task involves 5-50+ files with interdependencies
+    \item \textbf{Long-context Requirement}: Tasks require understanding of 10K-100K+ tokens
+    \item \textbf{Agent-specific Evaluation}: Focus on development agent capabilities rather than code completion
+    \item \textbf{Scalable Generation}: Automated pipeline for creating new evaluation instances
+\end{enumerate}
+
+\subsection{Task Categories}
+
+\subsubsection{Cross-file Refactoring}
+\begin{itemize}
+    \item Extract functionality into new modules while maintaining dependencies
+    \item Rename classes/functions across multiple files
+    \item Restructure package hierarchies
+    \item Apply design patterns to existing code
+\end{itemize}
+
+\subsubsection{Feature Implementation}
+\begin{itemize}
+    \item Add authentication systems across web applications
+    \item Implement new API endpoints with proper routing and validation
+    \item Integrate new libraries while maintaining compatibility
+    \item Add logging and monitoring to existing systems
+\end{itemize}
+
+\subsubsection{Bug Investigation and Fixing}
+\begin{itemize}
+    \item Trace errors through complex call stacks
+    \item Identify and fix race conditions in concurrent code
+    \item Debug performance issues across multiple modules
+    \item Fix integration problems between components
+\end{itemize}
+
+\subsubsection{Architecture Understanding and Documentation}
+\begin{itemize}
+    \item Generate comprehensive documentation for complex modules
+    \item Create architectural diagrams from code analysis
+    \item Identify code smells and suggest improvements
+    \item Explain design decisions and trade-offs
+\end{itemize}
+
+\subsection{Difficulty Levels}
+\begin{enumerate}
+    \item \textbf{Easy (2-5 files)}: Simple cross-file operations, basic dependency understanding
+    \item \textbf{Medium (5-15 files)}: Moderate complexity with multiple dependencies
+    \item \textbf{Hard (15-50+ files)}: Complex architectural understanding, deep dependency analysis
+\end{enumerate}
+
+\section{Data Sources and Resources}
+
+\subsection{Foundation Datasets}
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}lll@{}}
+\toprule
+Dataset & Size & Description \\
+\midrule
+The Stack (BigCode) & 6TB & Permissively-licensed code in 358+ languages \\
+Project CodeNet (IBM) & 14M samples & Problem-solution pairs across 4K problems \\
+CodeSearchNet & 2M pairs & Comment-code pairs in 6 languages \\
+\bottomrule
+\end{tabular}
+\caption{Primary data sources for AgentCodeEval}
+\end{table}
+
+\subsection{Analysis Tools}
+\begin{itemize}
+    \item \textbf{Tree-sitter}: Multi-language incremental parser for AST analysis
+    \item \textbf{dep-tree}: Codebase complexity and dependency visualization
+    \item \textbf{Sokrates}: Polyglot source code examination framework
+\end{itemize}
+
+\subsection{Seed Repositories}
+High-quality, well-documented projects for task generation:
+\begin{itemize}
+    \item TensorFlow (191k stars): Complex ML framework
+    \item PyTorch (92k stars): Well-structured deep learning library
+    \item scikit-learn: Exemplary Python project structure
+    \item Keras: Clean, well-documented codebase
+    \item React.js: Modern frontend framework
+    \item Node.js/Express: Backend development patterns
+\end{itemize}
+
+\section{Methodology}
+
+\subsection{Task Generation Pipeline}
+
+\subsubsection{Phase 1: Codebase Analysis}
+\begin{enumerate}
+    \item Parse codebases using Tree-sitter for AST generation
+    \item Analyze dependencies using dep-tree and custom tooling
+    \item Identify architectural patterns and design principles
+    \item Extract meaningful code segments and their relationships
+\end{enumerate}
+
+\subsubsection{Phase 2: Scenario Creation}
+\begin{enumerate}
+    \item Generate realistic development scenarios based on codebase analysis
+    \item Create multi-file tasks with clear objectives and constraints
+    \item Ensure tasks require long-context understanding
+    \item Validate task complexity and solvability
+\end{enumerate}
+
+\subsubsection{Phase 3: Reference Solution Generation}
+\begin{enumerate}
+    \item Use state-of-the-art LLMs (Claude, GPT-4) to create reference implementations
+    \item Manual validation and refinement of solutions
+    \item Multiple solution variants for comprehensive evaluation
+    \item Documentation of expected approaches and trade-offs
+\end{enumerate}
+
+\subsection{Evaluation Metrics}
+
+\subsubsection{Functional Correctness}
+\begin{itemize}
+    \item Code compiles and runs without errors
+    \item Unit tests pass (where applicable)
+    \item Integration tests validate cross-module functionality
+    \item Performance benchmarks (for optimization tasks)
+\end{itemize}
+
+\subsubsection{Architectural Integrity}
+\begin{itemize}
+    \item Maintains existing design patterns
+    \item Preserves separation of concerns
+    \item Follows established coding conventions
+    \item Respects dependency injection patterns
+\end{itemize}
+
+\subsubsection{Dependency Management}
+\begin{itemize}
+    \item All imports/references are correct and minimal
+    \item No circular dependencies introduced
+    \item Proper abstraction levels maintained
+    \item Interface contracts preserved
+\end{itemize}
+
+\subsubsection{Code Quality}
+\begin{itemize}
+    \item Readability and maintainability scores
+    \item Documentation completeness and quality
+    \item Error handling and edge case coverage
+    \item Security best practices adherence
+\end{itemize}
+
+\section{Development Plan}
+
+\subsection{Phase 1: Foundation Setup (Weeks 1-2)}
+\begin{itemize}
+    \item Download and preprocess The Stack dataset (Python, JavaScript, TypeScript, Java)
+    \item Set up analysis tools (Tree-sitter, dep-tree, Sokrates)
+    \item Select and analyze 10-15 seed repositories
+    \item Develop initial codebase parsing and analysis pipeline
+\end{itemize}
+
+\subsection{Phase 2: Task Generation Pipeline (Weeks 3-4)}
+\begin{itemize}
+    \item Implement automated dependency analysis
+    \item Create task template system for different categories
+    \item Develop scenario generation algorithms
+    \item Build validation framework for task quality
+\end{itemize}
+
+\subsection{Phase 3: Reference Solution Creation (Weeks 5-6)}
+\begin{itemize}
+    \item Integrate Claude/GPT-4 APIs for solution generation
+    \item Implement solution validation and testing framework
+    \item Create multiple solution variants for each task
+    \item Develop automated quality assessment tools
+\end{itemize}
+
+\subsection{Phase 4: Benchmark Assembly (Weeks 7-8)}
+\begin{itemize}
+    \item Generate 100-500 evaluation instances across difficulty levels
+    \item Implement comprehensive evaluation metrics
+    \item Create baseline evaluations with existing LLMs
+    \item Validate benchmark difficulty and discrimination
+\end{itemize}
+
+\subsection{Phase 5: Validation and Publication (Weeks 9-10)}
+\begin{itemize}
+    \item Conduct thorough benchmark validation
+    \item Evaluate multiple state-of-the-art LLMs
+    \item Prepare research paper and documentation
+    \item Release benchmark and evaluation framework
+\end{itemize}
+
+\section{Expected Contributions}
+
+\subsection{Research Contributions}
+\begin{enumerate}
+    \item First comprehensive benchmark for long-context LLMs in software development agent tasks
+    \item Novel evaluation framework for multi-file code understanding and generation
+    \item Automated pipeline for generating realistic software development scenarios
+    \item Comprehensive analysis of current LLM capabilities in agent-based development workflows
+\end{enumerate}
+
+\subsection{Practical Impact}
+\begin{enumerate}
+    \item Enable rigorous evaluation of software development AI agents
+    \item Provide clear metrics for progress in long-context code understanding
+    \item Guide development of more effective coding assistants
+    \item Establish standards for evaluating AI-powered development tools
+\end{enumerate}
+
+\section{Resource Requirements}
+
+\subsection{Computational Resources}
+\begin{itemize}
+    \item Standard server with 32GB+ RAM (no GPU required for analysis)
+    \item 100GB+ storage for datasets and generated tasks
+    \item API access to Claude/GPT-4/Gemini for reference generation
+\end{itemize}
+
+\subsection{No Requirements}
+\begin{itemize}
+    \item Human annotation or labeling
+    \item GPU resources for training
+    \item Complex distributed infrastructure
+\end{itemize}
+
+\section{Timeline and Deliverables}
+
+\subsection{10-Week Timeline}
+\begin{itemize}
+    \item Weeks 1-2: Foundation setup and tool configuration
+    \item Weeks 3-4: Task generation pipeline development
+    \item Weeks 5-6: Reference solution creation and validation
+    \item Weeks 7-8: Benchmark assembly and initial evaluation
+    \item Weeks 9-10: Validation, documentation, and publication
+\end{itemize}
+
+\subsection{Key Deliverables}
+\begin{enumerate}
+    \item AgentCodeEval benchmark dataset (100-500 instances)
+    \item Automated evaluation framework and metrics
+    \item Baseline performance analysis of major LLMs
+    \item Research paper documenting methodology and results
+    \item Open-source release of tools and benchmark
+\end{enumerate}
+
+\section{Conclusion}
+
+AgentCodeEval addresses a critical gap in long-context LLM evaluation by focusing on realistic software development agent tasks. By leveraging existing high-quality code datasets and automated analysis tools, we can create a comprehensive benchmark without requiring extensive human annotation or GPU resources. This benchmark will provide valuable insights into current LLM capabilities and guide future development of AI-powered software development tools.
+
+The proposed approach is both novel and practical, offering a scalable methodology for generating realistic evaluation scenarios while maintaining rigorous evaluation standards. AgentCodeEval has the potential to become a standard benchmark in the field, similar to how HumanEval established standards for code completion evaluation.
+
+\end{document}
