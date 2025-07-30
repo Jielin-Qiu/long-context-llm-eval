@@ -1,0 +1,546 @@
+\tikzstyle{my-box}=[
+    rectangle,
+    draw=hidden-draw,
+    rounded corners,
+    text opacity=1,
+    minimum height=1.5em,
+    minimum width=5em,
+    inner sep=2pt,
+    align=center,
+    fill opacity=.5,
+    line width=0.8pt,
+]
+\tikzstyle{leaf}=[my-box, minimum height=1.5em,
+    fill=hidden-pink!80, text=black, align=left,font=\normalsize,
+    inner xsep=2pt,
+    inner ysep=4pt,
+    line width=0.8pt,
+]
+
+    % Longwanjuan~\citep{liu-etal-2024-longwanjuan} &   Bilingual, 
+    %  filtered from SlimPajama~\citep{slimpajama} and Wanjuan~\citep{He2023WanJuanAC} & Pre-training  \\
+    % Long-Data-Collections~\citep{longdata} &  A wide variety of data sources &Pre-training\\
+    % LongAttn~\citep{wu2025longattn} & Long-range dependency selected using attention patterns & Post-training \\
+    
+\begin{figure}[t!]
+    \centering
+    \resizebox{\textwidth}{!}{
+        \begin{forest}
+        forked edges,
+            for tree={
+                grow=east,
+                reversed=true,
+                anchor=base west,
+                parent anchor=east,
+                child anchor=west,
+                base=center,
+                font=\large,
+                rectangle,
+                draw=hidden-draw,
+                rounded corners,
+                align=left,
+                text centered,
+                minimum width=4em,
+                edge+={darkgray, line width=1pt},
+                s sep=3pt,
+                inner xsep=2pt,
+                inner ysep=3pt,
+                line width=0.8pt,
+                ver/.style={rotate=90, child anchor=north, parent anchor=south, anchor=center}
+            },
+            where level=1{text width=10em,font=\normalsize,}{},
+            where level=2{text width=12em,font=\normalsize,}{},
+            where level=3{text width=12em,font=\normalsize,}{},
+            where level=4{text width=17em,font=\normalsize,}{},
+            where level=5{text width=6em,font=\normalsize,}{},
+            [
+                Long Context Language Modeling, ver
+                [
+                    How to obtain\\
+                    effective and \\efficient LCLMs?
+                    [
+                        Data
+                        (\S\ref{sec:data})
+                        [
+                            Pre-training Data
+                            [
+                                Data Filtering
+                                [
+                                    Longwanjuan~\citep{liu-etal-2024-longwanjuan}{, }LongAttn~\citep{wu2025longattn}
+                                    , leaf, text width=33.6em
+                                ]
+                            ]
+                            [
+                                Data Mixture
+                                [
+                                   Long-Context Data Engineering
+~\cite{Fu2024DataEF}{, }GrowLength~\citep{growlength}
+                                    , leaf, text width=33.6em
+                                ]
+                            ]
+                            [
+                                Data Synthesis
+                                [
+                                    ICP~\citep{Shi2023InContextPL}{, } SPLICE~\citep{spacking}{, }Quest~\citep{quest}
+                                    , leaf, text width=33.6em
+                                ]
+                            ]
+                        ]
+                        [
+                            Post-training Data
+                            [
+                                Data Filtering
+                                [
+                                    GATEAU~\citep{geteau}
+                                    , leaf, text width=33.6em
+                                ]
+                            ]
+                            [
+                                Data Synthesis
+                                [
+                                    Ziya-Reader~\citep{pamqa}{, }
+                                    MIMG~\citep{Chen2024WhatAT}{, }
+                                    Chat QA2~\citep{Xu2024ChatQA2B}
+                                    , leaf, text width=33.6em
+                                ]
+                            ]
+                        ]
+                    ]
+                    [
+                        Architecture (\S\ref{sec:model})
+                        [
+                            Position Embeddings
+                            [
+                                Position Embedding Types
+                                [
+                                    RoPE~\citep{su2024roformer}{, }Alibi~\citep{press2021train}{, }
+                                    T5~\citep{raffel2020exploring}{, }
+                                CoPE~\citep{golovneva2024contextual}{, }
+                                XPOS~\citep{sun2022length}
+                                    , leaf, text width=33.6em
+                                ]
+                            ]
+                            [
+                                 Extrapolation Methods \\
+                                 of Position Embeddings
+                                [
+                                   ReRoPE~\citep{kexuefm-9708} {, }
+                                    ABF~\citep{xiong2023effective}{, }NTK~\citep{peng2023yarn}{, }YaRN~\citep{peng2023yarn}{, }LongRoPE~\cite{ding2024longrope}
+                                    , leaf, text width=33.6em
+                                ]
+                            ]
+                        ]
+                        [
+                            Attention
+                            [
+                                Transformer-Based Architecture
+                                [Transformer-XL~\cite{TransformerXL}{, }Longformer~\citep{beltagy2020longformerlongdocumenttransformer}{, }MoA~\citep{fu2024moamixturesparseattention}{, }NSA~\citep{yuan2025nativesparseattentionhardwarealigned}{, }GQA~\citep{chinnakonduru2024weightedgroupedqueryattention}
+                                    , leaf, text width=33.6em
+                                ]
+                            ]
+                            [
+                                Linear-Complexity Architecture
+                                [
+                                    Mamba~\cite{gu2023mamba}{, }lightning attention~\cite{qin2024lightningattention2freelunch}{, }RetNet~\cite{sun2023retentivenetworksuccessortransformer}{, }ReMamba~\cite{yuan2025remambaequipmambaeffective}
+                                    , leaf, text width=33.6em
+                                ]
+                            ]
+                            [
+                                Hybrid Architecture
+                                [
+                                    Jamba~\cite{lieber2024jamba}{, }  Hymba~\cite{dong2024hymba}{, }Samba~\cite{ren2024samba}{, }YOCO~\cite{sun2025you}{, }
+                                    Minimax-01~\citep{minimax2025minimax01scalingfoundationmodels}
+                                    , leaf, text width=33.6em
+                                ]
+                            ]
+                        ]
+                    ]
+                    [
+                        Workflow Design (\S\ref{sec:workflow})
+                        [
+                            Prompt Compression
+                            [
+                                Hard Prompt Compression
+                                [
+                                    AdaComp~\citep{zhang2024adacompextractivecontextcompression}{, }
+                                    PCRL~\citep{Jung_2024}{, }LLMLingua~\citep{jiang-etal-2023-llmlingua}{, }
+                                    CompAct~\citep{yoon-etal-2024-compact} 
+                                    , leaf, text width=33.6em
+                                ]
+                            ]
+                            [
+                                Soft Prompt Compression
+                                [
+                                    ICAE~\citep{ge2024incontext} {, } xRAG~\citep{cheng2024xrag}{, }UniICL~\citep{gao2024unifyingdemonstrationselectioncompression}{, }Gist~\citep{NEURIPS2023_3d77c6dc}{, }Beacon~\citep{zhang2025long}
+                                    , leaf, text width=33.6em
+                                ]
+                            ]
+                        ]
+                        [
+                            Memory-Based Methods
+                            [
+                                Language Memory
+                                [
+                                    MemoryBank~\citep{DBLP:conf/aaai/ZhongGGYW24}{, }
+                                    RecurrentGPT~\citep{recurrentgpt}
+                                    , leaf, text width=33.6em
+                                ]
+                            ]
+                            [
+                                Continuous Memory
+                                [
+                                    LongMem~\citep{longmem}{, }
+                                    MemoryLLM~\citep{memoryllm}
+                                    , leaf, text width=33.6em
+                                ]
+                            ]
+                            [
+                                Parametric  Memory
+                                [
+                                    DSI~\citep{dsi}{, }
+                                    DSI++~\citep{dsiplusplus}{, }
+                                    Generative Adapter~\citep{chen2024generative}
+                                    , leaf, text width=33.6em
+                                ]
+                            ]
+                        ]
+                        [
+                            RAG-Based Methods
+                            [
+                                Chunking
+                                [
+                                    Late Chunking~\citep{günther2024late}{, }
+                                    Contextual-Retrieval~\citep{contextual-retrieval}
+                                    , leaf, text width=33.6em
+                                ]
+                            ]
+                            [
+                                Retrieval
+                                [
+                                    BGE-M3~\citep{chen2024bge}{, }
+                                    ModernBERT~\citep{warner2024smarter0}{, }
+                                    REAPER~\citep{joshi2024reaper}
+                                    , leaf, text width=33.6em
+                                ]
+                            ]
+                            [
+                                Generation
+                                [
+                                    Fusion-in-Decoder~\citep{fusion-in-decoder}{, }
+                                    kNN-LM~\citep{knn-lm}{, }
+                                    Retro~\citep{retro}
+                                    , leaf, text width=33.6em
+                                ]
+                            ]
+                        ]
+                        [
+                            Agent-Based Methods
+                            [
+                                Single-Agent Architectures
+                                [
+                                    ReadAgent~\citep{readagent}{,}
+                                    GraphReader~\citep{graphreader}{,}
+                                    MemWalker~\citep{memwalker}{,}
+                                    RecurrentGPT~\citep{recurrentgpt}
+                                    , leaf, text width=33.6em
+                                ]
+                            ]
+                            [
+                                Multi-Agent Systems
+                                [
+                                    CoA~\citep{chain-of-agent}{, }
+                                    LongAgent~\citep{longagent}{, }
+                                    , leaf, text width=33.6em
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+                [
+                    How to train and 
+                    \\deploy LCLMs \\
+                    efficiently?
+                    [
+                        Infrastructure
+                        (\S\ref{sec:infra})
+                        [
+                            Training of LCLMs
+                            [
+                                Optimization on I/O
+                                [
+                                     Dataset-decomposition~\citep{pouransari2024dataset}{, }
+                                     SPLICE~\citep{staniszewski2023structured}{, }
+                                     Qwen2.5-1M~\citep{yang2025qwen2}{, }
+                                     3FS~\citep{deepseek3fs}
+                                    , leaf, text width=33.6em
+                                ]
+                            ]
+                            [
+                               Optimization on GPU Constraints
+                                [
+                                    DeepGEMM~\citep{deepgemm2025}{, }
+                                     FPTQ~\citep{li2023fptq}{, }
+                                     FlashAttention~\citep{dao2024flashattention}{, }
+                                     NSA~\citep{yuan2025native}{, }
+                                     UP~\citep{jacobs2023deepspeed}
+                                    , leaf, text width=33.6em
+                                ]
+                            ]
+                            [
+                                Optimization on Communication
+                                [
+                                    FLUX~\citep{chang2024flux}{, }
+                                     DualPipe~\citep{deepseekai2024deepseekv3technicalreport}{, }
+                                     TCCL~\citep{kim2024tccl}{, }
+                                     Multi-streams~\citep{sourouri2014effective}
+                                    , leaf, text width=33.6em
+                                ]
+                            ]
+                        ]
+                        [
+                            Inference of LCLMs
+                            [
+                                Quantization
+                                [   FlexGen~\citep{sheng2023flexgen}{, }
+                                    SmoothQuant~\citep{xiao2023smoothquant}{, }
+                                    KVQuant~\citep{hooper2025kvquant}
+                                    , leaf, text width=33.6em
+                                ]
+                            ]
+                            [
+                                Memory Management
+                                [   vLLM~\citep{kwon2023efficient}{, } 
+                                    SGLang~\citep{zheng2023efficiently}
+                                    , leaf, text width=33.6em
+                                ]
+                            ]
+                            [
+                                Prefilling-Decoding \\
+                                Disaggregated Architecture
+                                [
+                                    Splitwise~\citep{patel2024splitwise}{, }
+                                    Mooncake~\citep{qin2024mooncake}
+                                    , leaf, text width=33.6em
+                                ]
+                            ]
+                            [
+                                GPU-CPU Parallel Inference
+                                [
+                                    PipeSwitch~\citep{bai2020pipeswitch}{, } 
+                                    FastDecode~\citep{he2024fastdecode}
+                                    , leaf, text width=33.6em
+                                ]
+                            ]
+                            [
+                                Speculative Decoding
+                                [
+                                    Speculative Decoding~\citep{leviathan2023fast}{, }
+                                    Medusa~\citep{cai2024medusa}{, }
+                                    Eagle~\citep{li2024eagle}
+                                    , leaf, text width=33.6em
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+                [
+                    How to  evaluate \\
+                    and analyze LCLMs \\
+                    comprehensively?
+                     [
+                        Evaluation
+                        (\S\ref{sec:evaluation})
+                        [
+                            Evaluating Long Context\\
+                            Comprehension
+                            [
+                                Evaluation Paradigm
+                                [
+                                   LongPPL~\cite{fang2024wrong}{, } 
+                                   SummHay~\citep{laban2024SummHay}{, }  
+                                   BABILong~\citep{kuratov2024babilong}{, } 
+                                   SWE-Bench~\citep{jimenez2024swebench}
+                                    , leaf, text width=33.6em
+                                ]
+                            ]
+                            [
+                                Evaluation Benchmark
+                                [
+                                   NIAH~\citep{mohtashami2023landmark,needleinhaystack}{, }
+                                   RULER~\citep{hsieh2024ruler}{, }
+                                   LongBench~\citep{bai2023longbench,bai2024longbench2}
+                                    , leaf, text width=33.6em
+                                ]   
+                            ]
+                        ]
+                        [
+                            Evaluating Long-Form\\
+                            Comprehension
+                            [
+                                Evaluation Benchmark
+                                [
+                                   ELI5~\citep{fan2019eli5}{, }
+                                   LongWriter~\citep{bai2024longwriter}{, }
+                                   FActScore~\citep{min2023factscore}{, }
+                                   ProxyQA~\citep{tan2024proxyqa}
+                                    , leaf, text width=33.6em
+                                ]
+                            ]
+                            [
+                                Data Source
+                                [
+                                   LOT-Gen~\citep{guan2022lot}{, }
+                                   MS-NLG~\citep{nguyen2016ms}{, }
+                                   Self-Lengthen~\citep{quan2024language}
+                                    , leaf, text width=33.6em
+                                ]
+                            ]
+                            [
+                                Evaluation Paradigm
+                                [
+                                   ROUGE~\citep{lin2004rouge}{, }
+                                   BLEU~\citep{papineni2002bleu}{, }
+                                   METEOR~\citep{banerjee2005meteor}{, }
+                                   LCFO~\citep{costa2024lcfo}{, }
+                                   HelloBench~\citep{que2024hellobench}
+                                    , leaf, text width=33.6em
+                                ]
+                            ]
+                        ]
+                    ]
+                    [
+                        Analysis
+                        (\S\ref{sec:analysis})
+                        [
+                            Performance Analysis
+                            [
+                                The False Promise of \\
+                                Supported Context Length
+                                [
+                                    Lost in the Middle~\cite{liu2024lost}{, }RULER~\cite{hsieh2024ruler}
+                                    , leaf, text width=33.6em
+                                ]
+                            ]
+                            [
+                                Relevance of Long Context Perplexity \\
+                                and Real-World Performance
+                                [
+                                    Can PPL Reflect Long Text Understanding~\cite{hu2024can}{, }
+                                    LongPPL~\cite{fang2024wrong}
+                                    , leaf, text width=33.6em
+                                ]
+                            ]
+                            [
+                                RAG Meets Long Context LLMs
+                                [
+                                    LongRAG~\citep{jiang2024longrag}{, }
+                                    Long-context llms meet rag~\citep{jin2024long}
+                                    , leaf, text width=33.6em
+                                ]
+                            ]
+                        ]
+                        [
+                            Model Structure Analysis
+                            [
+                                Positional Embeddings
+                                [
+                                    RoPE~\citep{su2024roformer}{, }
+                                    PI~\citep{chen2023extending}{, }
+                                    Scaling Laws of RoPE-based Extrapolation~\citep{liu2023scaling}
+                                    , leaf, text width=33.6em
+                                ]
+                            ]
+                            [
+                                Attention and MLP Analysis
+                                [
+                                    Retrieval Head~\citep{wu2025retrieval_head}{,}
+                                    StreamingLLM~\citep{attn_sink}{,}
+                                    HeadKV~\citep{fu2025not}{,}
+                                    \citet{voita-etal-2024-neurons_func}
+                                    , leaf, text width=33.6em
+                                ]
+                            ]
+                            [
+                                Layer Interaction
+                                [
+                                    MiniMax-01~\citep{minimax2025minimax01scalingfoundationmodels}{, }
+                                    Rope to Nope and Back Again~\citep{yang_hybrid_attn_rope_nope}
+                                    , leaf, text width=33.6em
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+                [
+                    Application (\S\ref{sec:application})
+                    [
+                        Application in Agent
+                        [
+                            Agents~\citep{zhou2023agents} {, } WebArena~\citep{zhou2023webarena}{, } OS-World~\citep{xie2024osworld}{, }TravelAgent~\citep{chen2024travelagent}
+                                , leaf, text width=43.6em
+                        ]
+                    ]
+                    [
+                        Application in RAG
+                        [
+                            Perplexity~\citep{perplexity_pages}{, } Genspark~\citep{genspark}{, } Microsoft Copilot~\citep{bing_copilot}{, } Deepsearch~\citep{deepsearch}
+                                , leaf, text width=43.6em
+                        ]
+                    ]
+                    [
+                        Application in Chatbot
+                        [
+                            ChatGPT~\cite{openai2024memory}{, }
+                            Character.ai~\cite{character_ai}{, }
+                            SpicyChat~\cite{spicychat}{, }
+                            Pi~\cite{inflection2023impi}{, }
+                            Talkie~\cite{talkie}
+                                , leaf, text width=43.6em
+                        ]
+                    ]
+                    [
+                        Application in Code
+                        [
+                            RepoCoder~\cite{zhang2023repocoder}{, }
+                            StarCoder2~\cite{lozhkov2024starcoder2stackv2}{, }
+                            Qwen2.5-Coder~\cite{hui2024qwen2}{, }
+                            GitHub Copilot~\cite{github_copilot}{, }
+                            Cursor~\cite{cursor_ai_2025}
+                                , leaf, text width=43.6em
+                        ]
+                    ]
+                    [
+                        Application in \\
+                        Traditional NLP Tasks
+                        [
+                            Document-level NMT~\cite{herold2023improving}{, }
+                            M3-Embedding~\cite{chen2024bge}{, }
+                            Text-Embedding-3-Large~\cite{openai2024embedding}
+                                , leaf, text width=43.6em
+                        ]
+                    ]
+                    [
+                        Application in \\
+                        Multimodal Tasks
+                        [
+                                    Gemini~\citep{team2024gemini} {, } Qwen2.5-VL~\citep{Qwen2.5-VL}{, }mPLUG-Owl3~\citep{ye-2024-arxiv-mPLUG-Owl3}{, }LongVILA~\citep{xue-2024-arxiv-LongVILA}{, }LongLLaVA~\citep{wang-2024-arxiv-LongLLaVA}
+                                , leaf, text width=43.6em
+                        ]
+                    ]
+                    [
+                        Application in \\
+                        Specific Domains
+                        [
+                            MedOdyssey~\cite{fan2024medodyssey}{, }
+                            LongFin~\cite{masry2024longfin}{, }
+                            MegaDNA~\cite{shao2024long}
+                                , leaf, text width=43.6em
+                        ]
+                    ]
+                ]
+            ]
+        \end{forest}
+    }
+    \caption{Taxonomy of Long Context Language Modeling.}
+    \label{fig:taxo_of_lclms}
+\end{figure}

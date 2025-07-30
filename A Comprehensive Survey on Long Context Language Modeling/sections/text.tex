@@ -1,0 +1,109 @@
+% 定义节点样式
+% \tikzset{
+%     root/.style = {draw, rounded corners, fill=blue!20, minimum width=2cm},
+%     internal/.style = {draw, fill=green!20, minimum width=1.8cm},
+%     leaf/.style = {draw, fill=pink!30, minimum width=1.5cm}
+% }
+
+\tikzstyle{my-box}=[
+    rectangle,
+    draw=hidden-draw,
+    rounded corners,
+    text opacity=1,
+    minimum height=1.5em,
+    minimum width=5em,
+    inner sep=2pt,
+    align=center,
+    fill opacity=.5,
+    line width=0.8pt,
+]
+\tikzstyle{leaf}=[my-box, minimum height=1.5em,
+    fill=hidden-pink!80, text=black, align=left,font=\normalsize,
+    inner xsep=2pt,
+    inner ysep=4pt,
+    line width=0.8pt,
+]
+
+\begin{figure}[t!]
+    \centering
+    \resizebox{\textwidth}{!}{
+        \begin{forest}
+        forked edges,
+            for tree={
+                grow=east,
+                reversed=true,
+                anchor=base west,
+                parent anchor=east,
+                child anchor=west,
+                base=center,
+                font=\large,
+                rectangle,
+                draw=hidden-draw,
+                rounded corners,
+                align=left,
+                text centered,
+                minimum width=4em,
+                edge+={darkgray, line width=1pt},
+                s sep=3pt,
+                inner xsep=2pt,
+                inner ysep=3pt,
+                line width=0.8pt,
+                ver/.style={rotate=90, child anchor=north, parent anchor=south, anchor=center}
+            },
+            where level=1{text width=10em,font=\normalsize,}{},
+            where level=2{text width=12em,font=\normalsize}{},
+            where level=3{text width=12em,font=\normalsize,}{},
+            where level=4{text width=17em,font=\normalsize,}{},
+            where level=5{text width=6em,font=\normalsize,}{},
+            % [ss, root, ver
+            %     [ss, internal
+            %         [s, leaf]
+            %         [OpenAI's Human Preference~\cite{jianlin_rope_beta_base}{, }MCTS~\cite{jianlin_rope_beta_base}, leaf, text width=33.6em]
+            %     ]
+            %     [ss
+            %     (\S\ref{sec:data}), internal
+            %         [ss, leaf]
+            %         [s, leaf]
+            %     ]
+            %     [ss, internal
+            %         [Q-Learning, leaf]
+            %         [s, leaf]
+            %     ]
+            % ]
+            [
+                Application
+                (\S\ref{sec:application})
+                [
+                    Application in Agent
+                    [
+                        OpenAI's Human Preference~\cite{jianlin_rope_beta_base}{, }
+                            , leaf, text width=22.0em
+                    ]
+                ]
+                [
+                    Application in RAG
+                    [
+                        ss
+                        [
+                            ss
+                            [
+                                OpenAI's Human Preference~\cite{jianlin_rope_beta_base}{, }
+                            , leaf, text width=22.0em
+                            ]
+                        ]
+                    ]
+                ]
+                [
+                    Application in Chatbot
+                    [
+                        OpenAI's Human Preference~\cite{jianlin_rope_beta_base}{, }
+                            , leaf, text width=22.0em
+                    ]
+                ]
+            ]
+        \end{forest}
+            }
+
+    \caption{Taxonomy of Long Context Language Modeling.}
+    \label{fig:taxo_of_temp}
+\end{figure}
