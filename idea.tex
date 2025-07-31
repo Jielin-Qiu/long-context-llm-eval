@@ -19,88 +19,203 @@
 \maketitle
 
 \begin{abstract}
-We propose AgentCodeEval, a comprehensive benchmark for evaluating long-context language models (LLMs) in software development agent scenarios. Unlike existing code evaluation benchmarks that focus on single-function completion or isolated code understanding, AgentCodeEval addresses the critical gap in evaluating LLMs' ability to perform complex, multi-file software development tasks that require understanding large codebases, managing dependencies, and implementing features across multiple sessions. This benchmark targets real-world software development workflows where agents must navigate complex file structures, understand inter-module dependencies, and maintain architectural consistency across large-scale codebases.
+We propose AgentCodeEval, a comprehensive benchmark for evaluating long-context language models (LLMs) in software development agent scenarios. Unlike existing code evaluation benchmarks that focus on single-function completion or isolated code understanding, AgentCodeEval addresses the critical gap in evaluating LLMs' ability to perform complex, multi-file software development tasks that require understanding large codebases, managing dependencies, and implementing features across multiple sessions. This benchmark targets real-world software development workflows where agents must navigate complex file structures, understand inter-module dependencies, and maintain architectural consistency across large-scale codebases. With 12,000 evaluation instances, AgentCodeEval provides 5x more comprehensive coverage than the largest existing benchmark (SWE-Bench: 2,294 instances).
 \end{abstract}
 
 \section{Introduction}
 
 \subsection{Motivation}
-Current long-context LLM evaluation benchmarks primarily focus on:
+Current long-context LLM evaluation benchmarks exhibit significant limitations when assessing software development agent capabilities:
+
+\subsubsection{Existing Benchmark Limitations}
 \begin{itemize}
-    \item Single-function code completion (HumanEval, MBPP)
-    \item Document retrieval and question-answering
-    \item Synthetic needle-in-haystack tasks
-    \item Mathematical reasoning over long sequences
+    \item \textbf{HumanEval (164 instances)}: Single-function code completion, no architectural context
+    \item \textbf{MBPP (1,000 instances)}: Isolated problem-solving, no codebase integration
+    \item \textbf{SWE-Bench (2,294 instances)}: Single-issue resolution, limited agent workflow evaluation
+    \item \textbf{L-Eval (2,000+ instances)}: General long-context tasks, no code-specific evaluation
+    \item \textbf{ETHIC (1,986 instances)}: High information coverage but not code-focused
 \end{itemize}
 
-However, these benchmarks fail to capture the complexity of real-world software development agent tasks, which require:
+\subsubsection{Real-World Agent Requirements}
+Software development agents must handle complex, interconnected tasks that existing benchmarks cannot evaluate:
 \begin{itemize}
-    \item Multi-file codebase understanding
-    \item Cross-module dependency management
-    \item Architectural pattern recognition and maintenance
-    \item Multi-session development workflows
-    \item Integration of new features into existing systems
+    \item \textbf{Multi-file codebase understanding}: Navigate 50+ files with complex dependencies
+    \item \textbf{Cross-module dependency management}: Understand and maintain architectural relationships
+    \item \textbf{Multi-session development workflows}: Maintain context across 2-5 development sessions
+    \item \textbf{Architectural pattern recognition}: Identify and maintain design patterns at scale
+    \item \textbf{Integration of new features}: Add functionality while preserving existing architecture
+    \item \textbf{Long-context memory retention}: Remember decisions and constraints across 200K+ tokens
 \end{itemize}
 
 \subsection{Research Gap}
-No existing benchmark comprehensively evaluates long-context LLMs in the software development agent domain, despite the growing importance of AI-powered development tools.
+Despite the critical importance of AI-powered development tools, no existing benchmark comprehensively evaluates long-context LLMs in realistic software development agent scenarios. Current evaluation methods fall short in three key areas:
+
+\begin{enumerate}
+    \item \textbf{Scale}: Largest code benchmark (SWE-Bench) has only 2,294 instances
+    \item \textbf{Agent Focus}: No benchmark specifically designed for agent workflows
+    \item \textbf{Long-Context Integration}: No evaluation of code understanding at 100K+ token scale
+\end{enumerate}
 
 \section{AgentCodeEval: Benchmark Design}
 
 \subsection{Core Concept}
-AgentCodeEval evaluates LLMs on realistic software development scenarios that span multiple files, require understanding of complex dependencies, and simulate multi-session development workflows.
+AgentCodeEval evaluates LLMs on realistic software development scenarios that span multiple files, require understanding of complex dependencies, and simulate multi-session development workflows. With 12,000 instances across 8 comprehensive task categories, AgentCodeEval provides 5x more extensive coverage than existing benchmarks.
 
 \subsection{Key Design Principles}
 \begin{enumerate}
-    \item \textbf{Real-world Relevance}: Tasks mirror actual software development workflows
-    \item \textbf{Multi-file Complexity}: Each task involves 5-50+ files with interdependencies
-    \item \textbf{Long-context Requirement}: Tasks require understanding of 10K-100K+ tokens
-    \item \textbf{Agent-specific Evaluation}: Focus on development agent capabilities rather than code completion
-    \item \textbf{Scalable Generation}: Automated pipeline for creating new evaluation instances
+    \item \textbf{Unprecedented Scale}: 12,000 instances—5x larger than SWE-Bench (2,294)
+    \item \textbf{Real-world Relevance}: Tasks derived from actual production codebases in The Stack v2
+    \item \textbf{Multi-file Complexity}: Each task involves 15-200+ files with authentic dependencies
+    \item \textbf{Long-context Requirement}: Tasks require understanding of 10K-200K+ tokens
+    \item \textbf{Agent-specific Evaluation}: Focus on multi-step agent workflows, not single-turn completion
+    \item \textbf{High Information Coverage}: Extending ETHIC methodology with IC > 0.7 for all tasks
+    \item \textbf{Automated Generation Pipeline}: Scalable creation using tree-sitter and LLM APIs
+    \item \textbf{Novel Evaluation Metrics}: Agent-specific metrics for architectural understanding and memory retention
 \end{enumerate}
+
+\subsection{Benchmark Architecture}
+AgentCodeEval consists of three integrated evaluation layers:
+\begin{itemize}
+    \item \textbf{Task Layer}: 8 categories covering all aspects of software development agents
+    \item \textbf{Context Layer}: Progressive complexity from 10K to 200K+ tokens
+    \item \textbf{Evaluation Layer}: Multi-dimensional metrics including architectural coherence and memory retention
+\end{itemize}
 
 \subsection{Task Categories}
 
-\subsubsection{Cross-file Refactoring}
+AgentCodeEval comprises 8 comprehensive task categories, each designed to evaluate specific agent capabilities:
+
+\subsubsection{1. Architectural Understanding (1,500 instances)}
+Evaluates agents' ability to comprehend and work with large-scale software architecture:
 \begin{itemize}
-    \item Extract functionality into new modules while maintaining dependencies
-    \item Rename classes/functions across multiple files
-    \item Restructure package hierarchies
-    \item Apply design patterns to existing code
+    \item \textbf{Design pattern recognition}: Identify MVC, Observer, Factory patterns across 50+ files
+    \item \textbf{Dependency graph analysis}: Understand component relationships in microservice architectures
+    \item \textbf{Layered architecture navigation}: Work with presentation, business, and data layers
+    \item \textbf{Context}: 15K-80K tokens, real production codebases from The Stack v2
 \end{itemize}
 
-\subsubsection{Feature Implementation}
+\subsubsection{2. Cross-file Refactoring (1,500 instances)}
+Tests systematic code restructuring while maintaining functionality:
 \begin{itemize}
-    \item Add authentication systems across web applications
-    \item Implement new API endpoints with proper routing and validation
-    \item Integrate new libraries while maintaining compatibility
-    \item Add logging and monitoring to existing systems
+    \item \textbf{Extract functionality}: Move shared code into new modules across 20+ files
+    \item \textbf{Rename operations}: Update class/function names consistently across codebase
+    \item \textbf{Package restructuring}: Reorganize module hierarchies while preserving imports
+    \item \textbf{Design pattern application}: Implement patterns like Strategy or Command across multiple files
+    \item \textbf{Context}: 20K-100K tokens, complex dependency chains
 \end{itemize}
 
-\subsubsection{Bug Investigation and Fixing}
+\subsubsection{3. Feature Implementation (1,800 instances)}
+Evaluates adding new functionality to existing systems:
 \begin{itemize}
-    \item Trace errors through complex call stacks
-    \item Identify and fix race conditions in concurrent code
-    \item Debug performance issues across multiple modules
-    \item Fix integration problems between components
+    \item \textbf{Authentication systems}: Implement OAuth/JWT across web application layers
+    \item \textbf{API endpoint creation}: Add REST endpoints with validation, routing, and documentation
+    \item \textbf{Database integration}: Implement new schemas while maintaining data consistency
+    \item \textbf{Third-party integration}: Add external services (payment, notification, analytics)
+    \item \textbf{Context}: 25K-150K tokens, full-stack development scenarios
 \end{itemize}
 
-\subsubsection{Architecture Understanding and Documentation}
+\subsubsection{4. Bug Investigation (1,500 instances)}
+Tests systematic debugging across complex codebases:
 \begin{itemize}
-    \item Generate comprehensive documentation for complex modules
-    \item Create architectural diagrams from code analysis
-    \item Identify code smells and suggest improvements
-    \item Explain design decisions and trade-offs
+    \item \textbf{Error tracing}: Follow exception paths through multiple modules and call stacks
+    \item \textbf{Race condition identification}: Debug concurrent/async code issues
+    \item \textbf{Performance debugging}: Identify bottlenecks across multiple components
+    \item \textbf{Integration failures}: Debug API communication and data flow issues
+    \item \textbf{Context}: 30K-120K tokens, real production bug scenarios
 \end{itemize}
 
-\subsection{Difficulty Levels}
+\subsubsection{5. Multi-session Development (1,200 instances)}
+Novel evaluation of context persistence across development sessions:
+\begin{itemize}
+    \item \textbf{Session continuity}: Maintain architectural decisions across 3-5 sessions
+    \item \textbf{Incremental feature building}: Build complex features across multiple sessions
+    \item \textbf{Context-aware modifications}: Respect previous decisions when adding functionality
+    \item \textbf{State management}: Track changes and dependencies across sessions
+    \item \textbf{Context}: 40K-200K tokens, extended development workflows
+\end{itemize}
+
+\subsubsection{6. Code Comprehension (1,500 instances)}
+Tests deep understanding and explanation capabilities:
+\begin{itemize}
+    \item \textbf{Algorithm explanation}: Describe complex algorithms and their purpose
+    \item \textbf{Architecture documentation}: Generate comprehensive system documentation
+    \item \textbf{Code review}: Identify issues, improvements, and architectural concerns
+    \item \textbf{Knowledge extraction}: Extract patterns, practices, and design principles
+    \item \textbf{Context}: 10K-80K tokens, focus on understanding over generation
+\end{itemize}
+
+\subsubsection{7. Integration Testing (1,300 instances)}
+Evaluates understanding of system integration and testing:
+\begin{itemize}
+    \item \textbf{Component interaction testing}: Verify interfaces between modules
+    \item \textbf{API compatibility validation}: Ensure backward compatibility in changes
+    \item \textbf{End-to-end workflow testing}: Test complete user journeys across systems
+    \item \textbf{Deployment validation}: Verify changes work in production-like environments
+    \item \textbf{Context}: 35K-100K tokens, system-level testing scenarios
+\end{itemize}
+
+\subsubsection{8. Security Analysis (1,200 instances)}
+Tests security-aware development practices:
+\begin{itemize}
+    \item \textbf{Vulnerability detection}: Identify SQL injection, XSS, authentication flaws
+    \item \textbf{Access control analysis}: Verify proper authorization across endpoints
+    \item \textbf{Data flow security}: Trace sensitive data through system components
+    \item \textbf{Secure coding practices}: Implement security patterns and best practices
+    \item \textbf{Context}: 20K-80K tokens, security-critical code scenarios
+\end{itemize}
+
+\subsection{Difficulty Levels and Context Distribution}
+
+AgentCodeEval implements a sophisticated difficulty progression based on context length, architectural complexity, and information coverage:
+
 \begin{enumerate}
-    \item \textbf{Easy (2-5 files)}: Simple cross-file operations, basic dependency understanding
-    \item \textbf{Medium (5-15 files)}: Moderate complexity with multiple dependencies
-    \item \textbf{Hard (15-50+ files)}: Complex architectural understanding, deep dependency analysis
+    \item \textbf{Easy Level (3,200 instances)}
+    \begin{itemize}
+        \item \textbf{Context Length}: 10K-40K tokens (15-30 files)
+        \item \textbf{Complexity}: Basic architectural patterns, straightforward dependencies
+        \item \textbf{Tasks}: Simple refactoring, basic feature addition, clear bug scenarios
+        \item \textbf{Information Coverage}: IC = 0.7-0.8 (moderate context utilization)
+        \item \textbf{Session Count}: 1-2 sessions for multi-session tasks
+    \end{itemize}
+    
+    \item \textbf{Medium Level (4,500 instances)}
+    \begin{itemize}
+        \item \textbf{Context Length}: 40K-100K tokens (30-80 files)
+        \item \textbf{Complexity}: Multiple architectural layers, moderate dependency chains
+        \item \textbf{Tasks}: Cross-module refactoring, complex feature integration, multi-component debugging
+        \item \textbf{Information Coverage}: IC = 0.8-0.9 (high context utilization)
+        \item \textbf{Session Count}: 2-4 sessions for multi-session tasks
+    \end{itemize}
+    
+    \item \textbf{Hard Level (3,600 instances)}
+    \begin{itemize}
+        \item \textbf{Context Length}: 100K-200K tokens (80-200+ files)
+        \item \textbf{Complexity}: Complex microservice architectures, deep dependency networks
+        \item \textbf{Tasks}: System-wide changes, architectural refactoring, complex integration scenarios
+        \item \textbf{Information Coverage}: IC > 0.9 (very high context utilization)
+        \item \textbf{Session Count}: 3-5 sessions for multi-session tasks
+    \end{itemize}
+    
+    \item \textbf{Expert Level (700 instances)}
+    \begin{itemize}
+        \item \textbf{Context Length}: 200K+ tokens (200+ files, full repository context)
+        \item \textbf{Complexity}: Enterprise-scale architectures, maximum complexity
+        \item \textbf{Tasks}: Full-system understanding, major architectural decisions
+        \item \textbf{Information Coverage}: IC > 0.95 (near-complete context utilization)
+        \item \textbf{Session Count}: 5+ sessions for extended development workflows
+    \end{itemize}
 \end{enumerate}
 
-\section{Data Sources and Resources}
+\subsection{Progressive Complexity Design}
+Each difficulty level introduces additional challenges:
+\begin{itemize}
+    \item \textbf{Architectural Depth}: From single-layer to multi-tier architectures
+    \item \textbf{Dependency Complexity}: From linear to circular and nested dependencies
+    \item \textbf{Context Span}: From local modules to entire repository understanding
+    \item \textbf{Session Memory**: From short-term to long-term context retention
+\end{itemize}
+
+\section{Data Sources and Infrastructure}
 
 \subsection{Foundation Datasets}
 \begin{table}[h]
@@ -109,161 +224,359 @@ AgentCodeEval evaluates LLMs on realistic software development scenarios that sp
 \toprule
 Dataset & Size & Description \\
 \midrule
-The Stack (BigCode) & 6TB & Permissively-licensed code in 358+ languages \\
+The Stack v2 (BigCode) & 67.5TB & 3B+ files, 600+ languages, production codebases \\
+StarCoderData & 783GB & Refined, deduplicated version with PII removal \\
 Project CodeNet (IBM) & 14M samples & Problem-solution pairs across 4K problems \\
-CodeSearchNet & 2M pairs & Comment-code pairs in 6 languages \\
+CodeSearchNet & 2M pairs & Comment-code pairs for documentation tasks \\
 \bottomrule
 \end{tabular}
-\caption{Primary data sources for AgentCodeEval}
+\caption{Primary data sources for AgentCodeEval generation}
 \end{table}
 
-\subsection{Analysis Tools}
+\subsection{Code Analysis Infrastructure}
 \begin{itemize}
-    \item \textbf{Tree-sitter}: Multi-language incremental parser for AST analysis
-    \item \textbf{dep-tree}: Codebase complexity and dependency visualization
-    \item \textbf{Sokrates}: Polyglot source code examination framework
+    \item \textbf{Tree-sitter}: Multi-language incremental parser supporting 358+ languages
+    \item \textbf{rust-code-analysis (Mozilla)}: Production-grade metrics extraction and complexity analysis
+    \item \textbf{metric-gardener}: Multi-language static analysis for dependency mapping
+    \item \textbf{tree-climber}: Program analysis tools for control flow and data flow analysis
 \end{itemize}
 
-\subsection{Seed Repositories}
-High-quality, well-documented projects for task generation:
+\subsection{Evaluation Framework Integration}
 \begin{itemize}
-    \item TensorFlow (191k stars): Complex ML framework
-    \item PyTorch (92k stars): Well-structured deep learning library
-    \item scikit-learn: Exemplary Python project structure
-    \item Keras: Clean, well-documented codebase
-    \item React.js: Modern frontend framework
-    \item Node.js/Express: Backend development patterns
+    \item \textbf{LightEval (Hugging Face)}: Extended for agent-specific evaluation with vLLM support
+    \item \textbf{LOOM-Scope}: Long-context evaluation framework integration
+    \item \textbf{Custom Agent Metrics}: Novel metrics for architectural coherence and memory retention
+    \item \textbf{LLM-as-a-Judge}: Automated evaluation using GPT-4o/Claude for complex reasoning assessment
 \end{itemize}
+
+\subsection{Repository Selection Criteria}
+From The Stack v2's 3B+ files, repositories are selected based on:
+\begin{itemize}
+    \item \textbf{Quality Metrics}: >100 stars, active development, clean commit history
+    \item \textbf{Architectural Complexity}: Multiple modules, clear patterns, realistic dependencies
+    \item \textbf{Size Range}: 50-500 files per repository (10K-200K tokens)
+    \item \textbf{Language Diversity}: Python, JavaScript, Java, C++, Go, TypeScript
+    \item \textbf{Domain Coverage}: Web frameworks, ML libraries, system tools, enterprise applications
+\end{itemize}
+
+\subsection{Target Repository Categories}
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}lll@{}}
+\toprule
+Category & Examples & Instance Count \\
+\midrule
+ML/AI Frameworks & TensorFlow, PyTorch, scikit-learn & 2,400 \\
+Web Frameworks & React, Vue, Django, Flask & 2,400 \\
+System Tools & Docker, Kubernetes, Git & 1,800 \\
+Enterprise Apps & ERP systems, CMS platforms & 1,800 \\
+API Services & REST APIs, GraphQL services & 1,800 \\
+Database Systems & ORMs, migration tools & 1,200 \\
+Security Tools & Authentication, encryption & 1,200 \\
+DevOps Tools & CI/CD, monitoring & 600 \\
+\bottomrule
+\end{tabular}
+\caption{Repository distribution for comprehensive domain coverage}
+\end{table}
 
 \section{Methodology}
 
-\subsection{Task Generation Pipeline}
+\subsection{Automated Generation Pipeline}
 
-\subsubsection{Phase 1: Codebase Analysis}
+AgentCodeEval employs a sophisticated 4-phase automated generation pipeline to create 12,000 high-quality evaluation instances:
+
+\subsubsection{Phase 1: Repository Analysis and Selection}
 \begin{enumerate}
-    \item Parse codebases using Tree-sitter for AST generation
-    \item Analyze dependencies using dep-tree and custom tooling
-    \item Identify architectural patterns and design principles
-    \item Extract meaningful code segments and their relationships
+    \item \textbf{Repository Filtering}: Process The Stack v2's 3B+ files using quality metrics (stars >100, clean history)
+    \item \textbf{AST Parsing}: Use tree-sitter to parse selected repositories into language-agnostic ASTs
+    \item \textbf{Dependency Analysis}: Extract import graphs, function call chains, and module relationships
+    \item \textbf{Architectural Pattern Detection}: Identify MVC, microservice, layered architectures using pattern matching
+    \item \textbf{Complexity Metrics}: Calculate cyclomatic complexity, dependency depth, and cohesion metrics
+    \item \textbf{Output}: 50,000 analyzed repositories with rich metadata
 \end{enumerate}
 
-\subsubsection{Phase 2: Scenario Creation}
+\subsubsection{Phase 2: Scenario Template Generation}
 \begin{enumerate}
-    \item Generate realistic development scenarios based on codebase analysis
-    \item Create multi-file tasks with clear objectives and constraints
-    \item Ensure tasks require long-context understanding
-    \item Validate task complexity and solvability
+    \item \textbf{Template Creation}: Develop 15 scenario templates per task category (120 total)
+    \item \textbf{Context Window Planning}: Design progressive complexity for 10K-200K token ranges
+    \item \textbf{Information Coverage Optimization**: Ensure IC > 0.7 by distributing critical information across context
+    \item \textbf{Multi-session Workflow Design**: Create 2-5 session templates for development workflows
+    \item \textbf{Validation Framework**: Implement automated checks for task solvability and complexity
+    \item \textbf{Output**: 120 validated scenario templates with complexity calibration
 \end{enumerate}
 
-\subsubsection{Phase 3: Reference Solution Generation}
+\subsubsection{Phase 3: Instance Generation at Scale}
 \begin{enumerate}
-    \item Use state-of-the-art LLMs (Claude, GPT-4) to create reference implementations
-    \item Manual validation and refinement of solutions
-    \item Multiple solution variants for comprehensive evaluation
-    \item Documentation of expected approaches and trade-offs
+    \item \textbf{Template-Repository Matching**: Pair scenarios with appropriate repositories based on complexity
+    \item \textbf{Synthetic Variation Generation**: Create 100 variations per template using LLM APIs
+    \item \textbf{Context Length Distribution**: Ensure proper distribution across Easy/Medium/Hard/Expert levels
+    \item \textbf{Quality Assurance Pipeline**: Automated validation of syntax, dependencies, and information coverage
+    \item \textbf{Deduplication**: Remove near-duplicate instances using semantic similarity
+    \item \textbf{Output**: 12,000 unique, validated evaluation instances
 \end{enumerate}
 
-\subsection{Evaluation Metrics}
-
-\subsubsection{Functional Correctness}
-\begin{itemize}
-    \item Code compiles and runs without errors
-    \item Unit tests pass (where applicable)
-    \item Integration tests validate cross-module functionality
-    \item Performance benchmarks (for optimization tasks)
-\end{itemize}
-
-\subsubsection{Architectural Integrity}
-\begin{itemize}
-    \item Maintains existing design patterns
-    \item Preserves separation of concerns
-    \item Follows established coding conventions
-    \item Respects dependency injection patterns
-\end{itemize}
-
-\subsubsection{Dependency Management}
-\begin{itemize}
-    \item All imports/references are correct and minimal
-    \item No circular dependencies introduced
-    \item Proper abstraction levels maintained
-    \item Interface contracts preserved
-\end{itemize}
-
-\subsubsection{Code Quality}
-\begin{itemize}
-    \item Readability and maintainability scores
-    \item Documentation completeness and quality
-    \item Error handling and edge case coverage
-    \item Security best practices adherence
-\end{itemize}
-
-\section{Development Plan}
-
-\subsection{Phase 1: Foundation Setup (Weeks 1-2)}
-\begin{itemize}
-    \item Download and preprocess The Stack dataset (Python, JavaScript, TypeScript, Java)
-    \item Set up analysis tools (Tree-sitter, dep-tree, Sokrates)
-    \item Select and analyze 10-15 seed repositories
-    \item Develop initial codebase parsing and analysis pipeline
-\end{itemize}
-
-\subsection{Phase 2: Task Generation Pipeline (Weeks 3-4)}
-\begin{itemize}
-    \item Implement automated dependency analysis
-    \item Create task template system for different categories
-    \item Develop scenario generation algorithms
-    \item Build validation framework for task quality
-\end{itemize}
-
-\subsection{Phase 3: Reference Solution Creation (Weeks 5-6)}
-\begin{itemize}
-    \item Integrate Claude/GPT-4 APIs for solution generation
-    \item Implement solution validation and testing framework
-    \item Create multiple solution variants for each task
-    \item Develop automated quality assessment tools
-\end{itemize}
-
-\subsection{Phase 4: Benchmark Assembly (Weeks 7-8)}
-\begin{itemize}
-    \item Generate 100-500 evaluation instances across difficulty levels
-    \item Implement comprehensive evaluation metrics
-    \item Create baseline evaluations with existing LLMs
-    \item Validate benchmark difficulty and discrimination
-\end{itemize}
-
-\subsection{Phase 5: Validation and Publication (Weeks 9-10)}
-\begin{itemize}
-    \item Conduct thorough benchmark validation
-    \item Evaluate multiple state-of-the-art LLMs
-    \item Prepare research paper and documentation
-    \item Release benchmark and evaluation framework
-\end{itemize}
-
-\section{Expected Contributions}
-
-\subsection{Research Contributions}
+\subsubsection{Phase 4: Reference Solution and Evaluation Creation}
 \begin{enumerate}
-    \item First comprehensive benchmark for long-context LLMs in software development agent tasks
-    \item Novel evaluation framework for multi-file code understanding and generation
-    \item Automated pipeline for generating realistic software development scenarios
-    \item Comprehensive analysis of current LLM capabilities in agent-based development workflows
+    \item \textbf{Multi-LLM Solution Generation**: Use GPT-4o, Claude 3.5, and Gemini for diverse reference solutions
+    \item \textbf{Solution Validation Framework**: Automated testing of generated solutions for correctness
+    \item \textbf{Multiple Solution Variants**: 2-3 reference solutions per instance for comprehensive evaluation
+    \item \textbf{Evaluation Rubric Creation**: Detailed scoring criteria for each task category
+    \item \textbf{Human Quality Sampling**: Manual validation of 5% (600 instances) across all categories
+    \item \textbf{Output**: Validated benchmark with reference solutions and evaluation framework
+\end{enumerate}
+
+\subsection{Novel Agent-Specific Evaluation Metrics}
+
+AgentCodeEval introduces comprehensive evaluation metrics specifically designed for software development agents:
+
+\subsubsection{Architectural Coherence Score (ACS)}
+Measures consistency with existing architectural patterns and design principles:
+\begin{itemize}
+    \item \textbf{Pattern Adherence}: Consistency with MVC, Observer, Factory patterns (0-1 scale)
+    \item \textbf{Layer Separation**: Proper separation between presentation, business, data layers
+    \item \textbf{Module Cohesion**: Logical grouping of related functionality
+    \item \textbf{Interface Consistency**: Adherence to established API contracts
+    \item \textbf{Formula}: ACS = 0.3×Pattern + 0.3×Separation + 0.2×Cohesion + 0.2×Interface
+\end{itemize}
+
+\subsubsection{Dependency Traversal Accuracy (DTA)}
+Evaluates correct navigation and understanding of complex dependency networks:
+\begin{itemize}
+    \item \textbf{Import Resolution**: Correct identification of required dependencies
+    \item \textbf{Call Chain Accuracy**: Proper understanding of function call sequences
+    \item \textbf{Circular Dependency Detection**: Identification and handling of dependency cycles
+    \item \textbf{Abstraction Level Respect**: Maintaining proper architectural boundaries
+    \item \textbf{Formula}: DTA = 0.4×Import + 0.3×CallChain + 0.15×Circular + 0.15×Abstraction
+\end{itemize}
+
+\subsubsection{Multi-Session Memory Retention (MMR)}
+Novel metric for evaluating context persistence across development sessions:
+\begin{itemize}
+    \item \textbf{Decision Consistency**: Maintaining architectural decisions across sessions
+    \item \textbf{Context Carryover**: Remembering constraints and requirements from previous sessions
+    \item \textbf{Incremental Building**: Successfully building on previous implementations
+    \item \textbf{State Tracking**: Maintaining awareness of changes and their implications
+    \item \textbf{Formula**: MMR = 0.3×Decision + 0.3×Context + 0.25×Building + 0.15×State
+\end{itemize}
+
+\subsubsection{Cross-File Reasoning Depth (CFRD)}
+Measures understanding of relationships across multiple files:
+\begin{itemize}
+    \item \textbf{Inter-module Understanding**: Comprehension of cross-file relationships
+    \item \textbf{Data Flow Tracking**: Following data transformations across modules
+    \item \textbf{Control Flow Analysis**: Understanding execution paths across files
+    \item \textbf{Side Effect Recognition**: Identifying cross-module side effects
+    \item \textbf{Formula**: CFRD = 0.3×Inter + 0.25×DataFlow + 0.25×ControlFlow + 0.2×SideEffect
+\end{itemize}
+
+\subsubsection{Incremental Development Capability (IDC)}
+Evaluates ability to build upon existing implementations progressively:
+\begin{itemize}
+    \item \textbf{Feature Extension**: Successfully adding functionality to existing systems
+    \item \textbf{Refactoring Preservation**: Maintaining functionality during restructuring
+    \item \textbf{Integration Compatibility**: Ensuring new features work with existing components
+    \item \textbf{Regression Prevention**: Avoiding introduction of bugs in existing functionality
+    \item \textbf{Formula**: IDC = 0.3×Extension + 0.25×Preservation + 0.25×Integration + 0.2×Prevention
+\end{itemize}
+
+\subsubsection{Information Coverage Utilization (ICU)}
+Measures how effectively agents use the provided context:
+\begin{itemize}
+    \item \textbf{Context Span**: Percentage of provided context actually referenced
+    \item \textbf{Critical Information Identification**: Recognition of key architectural components
+    \item \textbf{Relevance Filtering**: Ability to distinguish relevant from irrelevant information
+    \item \textbf{Deep vs Surface Understanding**: Quality of context utilization
+    \item \textbf{Formula**: ICU = 0.3×Span + 0.3×Critical + 0.2×Filtering + 0.2×Depth
+\end{itemize}
+
+\subsubsection{Composite Agent Development Score (CADS)}
+Overall agent capability combining all metrics:
+\begin{itemize}
+    \item \textbf{CADS = 0.2×ACS + 0.2×DTA + 0.2×MMR + 0.15×CFRD + 0.15×IDC + 0.1×ICU}
+    \item \textbf{Range**: 0-5 scale for consistency with existing benchmarks
+    \item \textbf{Interpretation**: >4.0 (Excellent), 3.0-4.0 (Good), 2.0-3.0 (Fair), <2.0 (Poor)
+\end{itemize}
+
+\section{Achieving 12,000 Instance Scale}
+
+\subsection{Instance Distribution Strategy}
+AgentCodeEval's 12,000 instances are strategically distributed to ensure comprehensive coverage:
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+Task Category & Easy & Medium & Hard & Total \\
+\midrule
+Architectural Understanding & 400 & 600 & 500 & 1,500 \\
+Cross-file Refactoring & 400 & 600 & 500 & 1,500 \\
+Feature Implementation & 500 & 700 & 600 & 1,800 \\
+Bug Investigation & 400 & 600 & 500 & 1,500 \\
+Multi-session Development & 300 & 500 & 400 & 1,200 \\
+Code Comprehension & 500 & 600 & 400 & 1,500 \\
+Integration Testing & 400 & 500 & 400 & 1,300 \\
+Security Analysis & 400 & 500 & 300 & 1,200 \\
+\midrule
+\textbf{Total} & \textbf{3,200} & \textbf{4,500} & \textbf{3,600} & \textbf{12,000} \\
+\bottomrule
+\end{tabular}
+\caption{AgentCodeEval instance distribution across categories and difficulty levels}
+\end{table}
+
+\subsection{Context Length Distribution}
+\begin{itemize}
+    \item \textbf{Short Context (10K-40K tokens)}: 3,200 instances (Easy tasks)
+    \item \textbf{Medium Context (40K-100K tokens)}: 4,500 instances (Medium tasks)
+    \item \textbf{Long Context (100K-200K tokens)}: 3,600 instances (Hard tasks)
+    \item \textbf{Ultra-Long Context (200K+ tokens)}: 700 instances (Expert-level evaluation)
+\end{itemize}
+
+\subsection{Scalability Advantages}
+
+\subsubsection{Automated Generation Pipeline}
+Our scale is achievable through automated generation using The Stack v2:
+\begin{itemize}
+    \item \textbf{Repository Pool}: 50,000+ high-quality repositories
+    \item \textbf{Synthetic Scenario Generation}: LLM-generated realistic development scenarios
+    \item \textbf{Template-based Scaling}: 8 task categories × 15 scenario templates = 120 base patterns
+    \item \textbf{Variation Generation}: 100 variations per base pattern = 12,000 instances
+\end{itemize}
+
+\subsubsection{Quality Control at Scale}
+\begin{itemize}
+    \item \textbf{Automated Validation}: Tree-sitter parsing ensures syntactic correctness
+    \item \textbf{Complexity Verification}: Information Coverage (IC) > 0.7 for all instances
+    \item \textbf{Human Sampling}: Manual validation of 5\% (600 instances) across all categories
+    \item \textbf{Difficulty Calibration}: Progressive complexity scaling within categories
+\end{itemize}
+
+\subsubsection{Resource Efficiency}
+Despite 12,000 instances, resource requirements remain manageable:
+\begin{itemize}
+    \item \textbf{Generation Cost}: \$3,000 in API calls (Claude/GPT-4 for reference solutions)
+    \item \textbf{Storage Requirements}: 50GB compressed benchmark data
+    \item \textbf{Evaluation Time}: 200 hours distributed across multiple API keys
+    \item \textbf{No Human Annotation}: Fully automated generation and validation
+\end{itemize}
+
+\section{Implementation Plan}
+
+\subsection{Phase 1: Infrastructure and Foundation (Weeks 1-2)}
+\begin{itemize}
+    \item \textbf{Data Access Setup}: Configure API access to The Stack v2 and StarCoderData
+    \item \textbf{Analysis Pipeline**: Deploy tree-sitter, rust-code-analysis, and metric-gardener
+    \item \textbf{Repository Selection**: Filter and select 50,000 high-quality repositories from The Stack v2
+    \item \textbf{AST Processing Pipeline**: Implement automated parsing for Python, JavaScript, Java, C++, Go
+    \item \textbf{Quality Metrics Framework**: Establish repository quality scoring (stars, complexity, patterns)
+    \item \textbf{Deliverable**: 50,000 analyzed repositories with rich architectural metadata
+\end{itemize}
+
+\subsection{Phase 2: Template and Scenario Design (Weeks 3-4)}
+\begin{itemize}
+    \item \textbf{Task Category Templates**: Create 15 scenario templates per category (120 total)
+    \item \textbf{Complexity Calibration**: Design progressive difficulty scaling for context lengths
+    \item \textbf{Information Coverage Optimization**: Implement ETHIC-style IC > 0.7 requirement
+    \item \textbf{Multi-session Framework**: Design 2-5 session development workflow templates
+    \item \textbf{Validation Pipeline**: Automated solvability and complexity verification
+    \item \textbf{Deliverable**: 120 validated scenario templates with complexity calibration
+\end{itemize}
+
+\subsection{Phase 3: Large-Scale Instance Generation (Weeks 5-6)}
+\begin{itemize}
+    \item \textbf{Template-Repository Matching**: Intelligent pairing based on complexity and domain
+    \item \textbf{Automated Variation Generation**: LLM APIs (GPT-4o, Claude 3.5) for 100 variations per template
+    \item \textbf{Quality Assurance Pipeline**: Syntax validation, dependency checking, IC verification
+    \item \textbf{Deduplication System**: Semantic similarity-based duplicate removal
+    \item \textbf{Distribution Validation**: Ensure proper Easy/Medium/Hard/Expert distribution
+    \item \textbf{Deliverable**: 12,000 unique, validated evaluation instances
+\end{itemize}
+
+\subsection{Phase 4: Evaluation Framework and Model Assessment (Weeks 7-8)}
+\begin{itemize}
+    \item \textbf{Agent-Specific Metrics**: Implement ACS, DTA, MMR, CFRD, IDC, ICU metrics
+    \item \textbf{Reference Solution Generation**: Multi-LLM approach for 2-3 solutions per instance
+    \item \textbf{Evaluation Infrastructure**: Extend LightEval for agent-specific evaluation
+    \item \textbf{Model Evaluation Campaign**: Assess 16-20 models (commercial + open-source)
+    \item \textbf{Statistical Analysis Framework**: Performance analysis across multiple dimensions
+    \item \textbf{Deliverable**: Complete benchmark with evaluation results for 16-20 models
+\end{itemize}
+
+\subsection{Phase 5: Validation, Documentation and Release (Weeks 9-10)}
+\begin{itemize}
+    \item \textbf{Human Validation Study**: Manual validation of 5% (600 instances) across categories
+    \item \textbf{Benchmark Reliability Analysis**: Inter-rater agreement, statistical significance testing
+    \item \textbf{Comprehensive Documentation**: Technical documentation, usage guides, evaluation protocols
+    \item \textbf{Research Paper Preparation**: Write and submit to top-tier venue (ICLR/NeurIPS/ICML)
+    \item \textbf{Public Release**: Open-source benchmark, leaderboard, and evaluation tools
+    \item \textbf{Deliverable**: Published benchmark, research paper, and public evaluation platform
+\end{itemize}
+
+\subsection{Success Metrics and Milestones}
+\begin{itemize}
+    \item \textbf{Scale Achievement**: 12,000 instances (5x larger than SWE-Bench)
+    \item \textbf{Quality Validation**: IC > 0.7 for all instances, 95\% human validation agreement
+    \item \textbf{Model Discrimination**: Clear performance differences across difficulty levels
+    \item \textbf{Statistical Significance**: Robust performance differences between model categories
+    \item \textbf{Community Adoption**: >50 model submissions within 6 months of release
+\end{itemize}
+
+\section{Expected Contributions and Impact}
+
+\subsection{Primary Research Contributions}
+\begin{enumerate}
+    \item \textbf{Unprecedented Scale Benchmark}: First 12,000-instance benchmark for software development agents—5x larger than existing code benchmarks
+    \item \textbf{Novel Agent-Specific Evaluation}: Introduction of 6 new metrics (ACS, DTA, MMR, CFRD, IDC, ICU) specifically designed for development agents
+    \item \textbf{Multi-Session Evaluation Paradigm}: First benchmark to evaluate context persistence and incremental development across multiple sessions
+    \item \textbf{Long-Context Code Integration**: Comprehensive evaluation of 10K-200K token codebases with high information coverage (IC > 0.7)
+    \item \textbf{Automated Generation Pipeline**: Scalable methodology for creating realistic development scenarios using production codebases
+    \item \textbf{Architectural Understanding Assessment}: First systematic evaluation of design pattern recognition and architectural comprehension at scale
+\end{enumerate}
+
+\subsection{Technical Innovations}
+\begin{enumerate}
+    \item \textbf{Information Coverage for Code**: Extension of ETHIC methodology to software development with distributed dependencies
+    \item \textbf{Production Codebase Integration**: Utilization of The Stack v2's 3B+ files for authentic development scenarios
+    \item \textbf{Multi-LLM Reference Generation**: Robust evaluation using diverse reference solutions from multiple state-of-the-art models
+    \item \textbf{Progressive Complexity Scaling**: Sophisticated difficulty progression from 10K to 200K+ tokens with calibrated complexity
+    \item \textbf{Agent Workflow Simulation**: Realistic multi-step development processes spanning architecture, implementation, debugging, and maintenance
 \end{enumerate}
 
 \subsection{Practical Impact}
 \begin{enumerate}
-    \item Enable rigorous evaluation of software development AI agents
-    \item Provide clear metrics for progress in long-context code understanding
-    \item Guide development of more effective coding assistants
-    \item Establish standards for evaluating AI-powered development tools
+    \item \textbf{Industry Standard Establishment**: Potential to become the definitive benchmark for software development agents (like HumanEval for code completion)
+    \item \textbf{Model Development Guidance**: Clear metrics for improving long-context architectural understanding and memory retention
+    \item \textbf{Research Acceleration**: Large-scale dataset enabling statistical analysis of agent capabilities across multiple dimensions
+    \item \textbf{Commercial Development Support**: Rigorous evaluation framework for AI-powered development tools and coding assistants
+    \item \textbf{Educational Applications**: Training and assessment framework for software engineering education
+    \item \textbf{Open Science Advancement**: Fully open-source benchmark, evaluation tools, and comprehensive documentation
 \end{enumerate}
+
+\subsection{Long-term Research Implications}
+\begin{enumerate}
+    \item \textbf{Long-Context Model Development**: Drive improvements in architectural understanding and memory retention for long-context LLMs
+    \item \textbf{Agent Architecture Research}: Enable systematic study of multi-session development workflows and context persistence
+    \item \textbf{Software Engineering AI**: Establish foundation for AI-assisted software development research and practice
+    \item \textbf{Benchmark Methodology**: Demonstrate scalable approaches for creating large-scale, high-quality evaluation datasets
+    \item \textbf{Interdisciplinary Impact**: Bridge software engineering and AI research communities through shared evaluation standards
+\end{enumerate}
+
+\subsection{Expected Community Adoption}
+\begin{itemize}
+    \item \textbf{Academic Research**: >100 research papers citing AgentCodeEval within 2 years
+    \item \textbf{Industry Adoption**: Integration into major AI development platforms and evaluation suites
+    \item \textbf{Model Benchmarking**: Standard evaluation for all major LLM releases in software development domain
+    \item \textbf{Educational Integration**: Adoption in computer science curricula for AI and software engineering courses
+    \item \textbf{Open Source Development**: Active community contributions and extensions to the benchmark framework
+\end{itemize}
 
 \section{Resource Requirements}
 
 \subsection{Computational Resources}
 \begin{itemize}
-    \item Standard server with 32GB+ RAM (no GPU required for analysis)
-    \item 100GB+ storage for datasets and generated tasks
+    \item Standard server with 64GB+ RAM (no GPU required for analysis)
+    \item 500GB+ storage for datasets and 12,000 generated tasks
     \item API access to Claude/GPT-4/Gemini for reference generation
+    \item Distributed API key management for parallel generation (estimated \$3,000 total cost)
 \end{itemize}
 
 \subsection{No Requirements}
@@ -284,9 +597,28 @@ High-quality, well-documented projects for task generation:
     \item Weeks 9-10: Validation, documentation, and publication
 \end{itemize}
 
+\subsection{Benchmark Scale Comparison}
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}lrr@{}}
+\toprule
+Benchmark & Instances & Context Length \\
+\midrule
+HumanEval & 164 & Single function \\
+MBPP & 1,000 & Single function \\
+SWE-Bench & 2,294 & Repository-level \\
+L-Eval & 2,000+ & 3K-200K tokens \\
+ETHIC & 1,986 & High coverage \\
+AgentRewardBench & 1,302 & Web trajectories \\
+\textbf{AgentCodeEval} & \textbf{12,000} & \textbf{10K-200K tokens} \\
+\bottomrule
+\end{tabular}
+\caption{Benchmark scale comparison - AgentCodeEval provides 5x more instances than the largest existing benchmark}
+\end{table}
+
 \subsection{Key Deliverables}
 \begin{enumerate}
-    \item AgentCodeEval benchmark dataset (100-500 instances)
+    \item AgentCodeEval benchmark dataset (12,000 instances)
     \item Automated evaluation framework and metrics
     \item Baseline performance analysis of major LLMs
     \item Research paper documenting methodology and results
@@ -295,8 +627,91 @@ High-quality, well-documented projects for task generation:
 
 \section{Conclusion}
 
-AgentCodeEval addresses a critical gap in long-context LLM evaluation by focusing on realistic software development agent tasks. By leveraging existing high-quality code datasets and automated analysis tools, we can create a comprehensive benchmark without requiring extensive human annotation or GPU resources. This benchmark will provide valuable insights into current LLM capabilities and guide future development of AI-powered software development tools.
+AgentCodeEval addresses a critical gap in long-context LLM evaluation by focusing on realistic software development agent tasks. With 12,000 instances—5x larger than the current largest benchmark—AgentCodeEval provides unprecedented comprehensive coverage of agent-based software development scenarios. By leveraging existing high-quality code datasets and automated analysis tools, we can create this large-scale benchmark without requiring extensive human annotation or GPU resources.
 
-The proposed approach is both novel and practical, offering a scalable methodology for generating realistic evaluation scenarios while maintaining rigorous evaluation standards. AgentCodeEval has the potential to become a standard benchmark in the field, similar to how HumanEval established standards for code completion evaluation.
+The proposed approach is both novel and practical, offering a scalable methodology for generating realistic evaluation scenarios while maintaining rigorous evaluation standards. The 12,000-instance scale enables statistically significant analysis across multiple dimensions: context length, task complexity, programming languages, and architectural patterns. AgentCodeEval has the potential to become the definitive standard benchmark in the field, establishing new baselines for long-context software development agent evaluation.
+
+\section{AgentCodeEval vs. Existing Benchmarks: Key Differentiators}
+
+\subsection{Unique Positioning}
+AgentCodeEval distinguishes itself from existing evaluation frameworks through several key innovations:
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}lllll@{}}
+\toprule
+Benchmark & Context Length & Task Type & Agent Focus & Evaluation Scope \\
+\midrule
+HumanEval & Single function & Code completion & None & Function-level \\
+MBPP & Single function & Code generation & None & Problem-solving \\
+SWE-Bench & Repository & Single issue & Limited & Issue resolution \\
+L-Eval & 3K-200K tokens & General long-context & None & Document QA \\
+∞Bench & 100K+ tokens & General reasoning & None & Long context \\
+ETHIC & High coverage & Domain tasks & None & Information utilization \\
+AgentRewardBench & Web trajectories & Web agents & Web-specific & Trajectory evaluation \\
+\textbf{AgentCodeEval} & \textbf{10K-200K tokens} & \textbf{Multi-file development} & \textbf{Code agents} & \textbf{Agent workflows} \\
+\bottomrule
+\end{tabular}
+\caption{Comparison of AgentCodeEval with existing benchmarks}
+\end{table}
+
+\subsection{Novel Evaluation Dimensions}
+
+\subsubsection{Multi-Session Development Workflows}
+Unlike existing benchmarks that evaluate single-turn interactions, AgentCodeEval introduces \textbf{multi-session evaluation}:
+\begin{itemize}
+    \item Session 1: Initial implementation and architecture setup
+    \item Session 2: Feature addition and integration
+    \item Session 3: Bug fixing and optimization
+    \item Session 4: Documentation and testing
+    \item Session 5: Refactoring and maintenance
+\end{itemize}
+
+\subsubsection{Architectural Understanding at Scale}
+AgentCodeEval is the first benchmark to systematically evaluate \textbf{architectural comprehension}:
+\begin{itemize}
+    \item Design pattern recognition across 50+ files
+    \item Dependency graph understanding with 100+ components
+    \item Microservice architecture navigation
+    \item Database schema integration reasoning
+\end{itemize}
+
+\subsubsection{Long-Context Agent Memory}
+Novel evaluation of \textbf{context persistence} and \textbf{incremental development}:
+\begin{itemize}
+    \item Maintaining architectural decisions across sessions
+    \item Building upon previous implementation choices
+    \item Context-aware code generation that respects existing patterns
+    \item Memory of cross-file dependencies and constraints
+\end{itemize}
+
+\subsection{Technical Innovation}
+
+\subsubsection{High Information Coverage for Code}
+Extending ETHIC's Information Coverage (IC) methodology to software development:
+\begin{itemize}
+    \item Code IC > 0.7: Tasks require 70%+ of provided codebase
+    \item Distributed dependencies: No single file contains the solution
+    \item Cross-module reasoning: Solutions span multiple architectural layers
+\end{itemize}
+
+\subsubsection{Agent-Specific Evaluation Metrics}
+Novel metrics designed specifically for code agent evaluation:
+\begin{itemize}
+    \item \textbf{Architectural Coherence Score (ACS)}: Measures consistency with existing patterns
+    \item \textbf{Dependency Traversal Accuracy (DTA)}: Correct navigation of complex dependencies
+    \item \textbf{Multi-Session Memory Retention (MMR)}: Context maintenance across sessions
+    \item \textbf{Cross-File Reasoning Depth (CFRD)}: Understanding multi-file relationships
+    \item \textbf{Incremental Development Capability (IDC)}: Building on previous work
+\end{itemize}
+
+\subsubsection{Real-World Codebase Complexity}
+AgentCodeEval uses actual production codebases from The Stack v2:
+\begin{itemize}
+    \item Real architectural patterns from 1000+ repositories
+    \item Authentic dependency structures and complexity
+    \item Production-level code quality and conventions
+    \item Diverse programming paradigms and languages
+\end{itemize}
 
 \end{document}
