@@ -18,20 +18,14 @@ api:
   default_model_google: "gemini-1.5-pro-latest"
 
 data:
-  # Data source paths (HuggingFace dataset IDs)
-  stack_v2_path: "bigcode/the-stack-v2"
-  starcoder_data_path: "bigcode/starcoderdata"
-  codenet_path: "ibm/Project_CodeNet"
-  
   # Local storage directories
   cache_dir: "./data/cache"
   output_dir: "./data/output"
   benchmark_dir: "./data/benchmark"
+  generated_dir: "./data/generated"
+  templates_dir: "./data/templates"
   
-  # Repository selection criteria
-  min_stars: 100
-  min_files: 10
-  max_files: 500
+  # Synthetic generation settings
   supported_languages:
     - python
     - javascript
@@ -40,7 +34,19 @@ data:
     - cpp
     - go
   
-  # Quality filtering thresholds
+  # Project generation criteria
+  min_files_per_project: 5
+  max_files_per_project: 100
+  projects_per_language: 200  # For 12,000 total instances (6 languages × 200 = 1,200 projects)
+  
+  # Complexity levels for synthetic projects
+  complexity_distribution:
+    easy: 0.25      # 25% easy projects
+    medium: 0.40    # 40% medium projects
+    hard: 0.25      # 25% hard projects
+    expert: 0.10    # 10% expert projects
+  
+  # Generation quality controls
   min_complexity_score: 0.3
   max_complexity_score: 0.9
   min_documentation_ratio: 0.1

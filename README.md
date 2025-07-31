@@ -97,31 +97,31 @@ agentcodeeval evaluate --model gpt-4o --task-category architectural_understandin
 
 ## 🏗️ Development Pipeline
 
-AgentCodeEval follows a 4-phase automated generation pipeline:
+AgentCodeEval follows a 4-phase **synthetic generation pipeline** to eliminate data contamination:
 
-### Phase 1: Repository Analysis and Selection
-- Filter 50,000+ repositories from The Stack v2
-- Extract AST and dependency information using tree-sitter
-- Calculate architectural complexity and quality metrics
-- **Output**: 50,000 analyzed repositories with metadata
+### Phase 1: Project Specification Generation
+- **Multi-LLM System**: OpenAI, Anthropic, Google for diverse perspectives  
+- **Domain Coverage**: Web apps, data pipelines, ML systems, APIs, games, blockchain
+- **Realistic Complexity**: Easy (5-15 files) to Expert (80-150 files)
+- **Output**: 1,200 unique project specifications (200 per language)
 
-### Phase 2: Scenario Template Generation  
-- Create 15 scenario templates per task category (120 total)
-- Design progressive complexity scaling
-- Implement Information Coverage (IC) optimization
-- **Output**: 120 validated scenario templates
+### Phase 2: Synthetic Codebase Generation  
+- **Architecture-First**: System design → File structure → Implementation
+- **Production Quality**: Real dependencies, tests, documentation, error handling
+- **Cross-File Consistency**: Proper imports, shared utilities, API contracts
+- **Output**: Complete multi-file projects (10K-500K tokens each)
 
-### Phase 3: Large-Scale Instance Generation
-- Match templates with appropriate repositories
-- Generate 100 variations per template using LLM APIs
-- Quality assurance and deduplication pipeline
-- **Output**: 12,000 unique evaluation instances
+### Phase 3: Agent Evaluation Scenario Creation
+- **8 Task Categories**: Architecture understanding, refactoring, debugging, etc.
+- **Progressive Complexity**: Context length from 10K to 500K tokens
+- **Realistic Workflows**: Multi-session development, incremental building
+- **Output**: 12,000 evaluation instances with ground truth solutions
 
-### Phase 4: Reference Solution Generation
-- Multi-LLM approach (GPT-4o, Claude, Gemini)
-- Generate 2-3 reference solutions per instance
-- Automated validation and evaluation rubrics
-- **Output**: Complete benchmark with reference solutions
+### Phase 4: Quality Validation and Deployment
+- **Multi-Model Validation**: Cross-verification using different LLMs
+- **Automated Quality Checks**: Complexity scoring, dependency analysis
+- **Human Expert Review**: Sample validation by senior engineers  
+- **Output**: Production-ready benchmark with automated evaluation
 
 ## 📈 Evaluation Metrics
 

@@ -3,14 +3,14 @@ Core utilities and base classes for AgentCodeEval
 """
 
 from .config import Config
-from .repository import Repository, RepositoryAnalyzer
+from .repository import Repository, SyntheticRepository
 from .task import Task, TaskCategory
 from .metrics import AgentMetrics
 
 __all__ = [
     "Config",
-    "Repository", 
-    "RepositoryAnalyzer",
+    "Repository",
+    "SyntheticRepository",
     "Task",
     "TaskCategory", 
     "AgentMetrics"

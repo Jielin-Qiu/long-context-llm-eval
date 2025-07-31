@@ -29,26 +29,33 @@ class APIConfig:
 
 @dataclass
 class DataConfig:
-    """Configuration for data sources and storage"""
-    # Data source paths
-    stack_v2_path: str = "bigcode/the-stack-v2"
-    starcoder_data_path: str = "bigcode/starcoderdata" 
-    codenet_path: str = "ibm/Project_CodeNet"
-    
+    """Configuration for synthetic data generation and storage"""
     # Local storage
     cache_dir: str = "./data/cache"
     output_dir: str = "./data/output"
     benchmark_dir: str = "./data/benchmark"
+    generated_dir: str = "./data/generated"
+    templates_dir: str = "./data/templates"
     
-    # Repository selection criteria
-    min_stars: int = 100
-    min_files: int = 10
-    max_files: int = 500
+    # Synthetic generation settings
     supported_languages: List[str] = field(default_factory=lambda: [
         "python", "javascript", "typescript", "java", "cpp", "go"
     ])
     
-    # Quality filtering
+    # Project generation criteria
+    min_files_per_project: int = 5
+    max_files_per_project: int = 100
+    projects_per_language: int = 200  # For 12,000 total instances
+    
+    # Complexity levels for synthetic projects
+    complexity_distribution: Dict[str, float] = field(default_factory=lambda: {
+        "easy": 0.25,      # 25% easy projects
+        "medium": 0.40,    # 40% medium projects  
+        "hard": 0.25,      # 25% hard projects
+        "expert": 0.10     # 10% expert projects
+    })
+    
+    # Generation quality controls
     min_complexity_score: float = 0.3
     max_complexity_score: float = 0.9
     min_documentation_ratio: float = 0.1

@@ -1,40 +1,34 @@
 """
-Repository analysis and management for AgentCodeEval
+Repository utilities for AgentCodeEval synthetic projects
 """
 
-from typing import Dict, List, Optional, Any
+from dataclasses import dataclass
+from typing import Dict, List, Any
 from pathlib import Path
 
 
-class Repository:
-    """Represents a code repository for analysis"""
+@dataclass
+class SyntheticRepository:
+    """Represents a synthetically generated repository for evaluation"""
+    name: str
+    language: str
+    file_count: int
+    total_tokens: int
+    complexity_score: float
+    domain: str
+    files: List[Dict[str, Any]]
     
-    def __init__(self, path: str, metadata: Optional[Dict] = None):
-        self.path = Path(path)
-        self.metadata = metadata or {}
-        self.files = []
-        self.analysis_results = {}
-    
-    def __repr__(self):
-        return f"Repository(path='{self.path}', files={len(self.files)})"
-
-
-class RepositoryAnalyzer:
-    """Analyzes repositories for quality metrics and complexity"""
-    
-    def __init__(self, config):
-        self.config = config
-    
-    def analyze_repository(self, repo: Repository) -> Dict[str, Any]:
-        """Analyze a repository and return metrics"""
-        # Placeholder implementation
+    def to_dict(self) -> Dict[str, Any]:
         return {
-            "complexity_score": 0.5,
-            "quality_score": 0.7,
-            "language_distribution": {"python": 0.8, "javascript": 0.2}
+            'name': self.name,
+            'language': self.language,
+            'file_count': self.file_count,
+            'total_tokens': self.total_tokens,
+            'complexity_score': self.complexity_score,
+            'domain': self.domain,
+            'files': self.files
         }
-    
-    def filter_repositories(self, repos: List[Repository]) -> List[Repository]:
-        """Filter repositories based on quality criteria"""
-        # Placeholder implementation
-        return repos[:100]  # Return first 100 for now 
+
+
+# Legacy compatibility - alias to new synthetic class
+Repository = SyntheticRepository 
