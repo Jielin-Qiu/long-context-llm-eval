@@ -1,0 +1,55 @@
+Metadata-Version: 2.1
+Name: agentcodeeval
+Version: 0.1.0
+Summary: AgentCodeEval: A Novel Benchmark for Evaluating Long-Context Language Models in Software Development Agent Tasks
+Author: AgentCodeEval Team
+Author-email: agentcodeeval@example.com
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: Software Development :: Quality Assurance
+Classifier: Topic :: Software Development :: Testing
+Requires-Python: >=3.8
+Requires-Dist: datasets>=2.14.0
+Requires-Dist: huggingface_hub>=0.17.0
+Requires-Dist: pandas>=2.0.0
+Requires-Dist: numpy>=1.24.0
+Requires-Dist: tree-sitter>=0.20.0
+Requires-Dist: tree-sitter-python>=0.20.0
+Requires-Dist: tree-sitter-javascript>=0.20.0
+Requires-Dist: tree-sitter-java>=0.20.0
+Requires-Dist: tree-sitter-cpp>=0.20.0
+Requires-Dist: tree-sitter-go>=0.20.0
+Requires-Dist: tree-sitter-typescript>=0.20.0
+Requires-Dist: radon>=6.0.0
+Requires-Dist: lizard>=1.17.0
+Requires-Dist: gitpython>=3.1.0
+Requires-Dist: openai>=1.0.0
+Requires-Dist: anthropic>=0.7.0
+Requires-Dist: google-generativeai>=0.3.0
+Requires-Dist: lighteval>=0.3.0
+Requires-Dist: tqdm>=4.65.0
+Requires-Dist: click>=8.1.0
+Requires-Dist: pyyaml>=6.0
+Requires-Dist: jsonlines>=3.1.0
+Requires-Dist: rich>=13.0.0
+Requires-Dist: pathspec>=0.11.0
+Requires-Dist: pytest>=7.4.0
+Requires-Dist: pytest-asyncio>=0.21.0
+Requires-Dist: black>=23.0.0
+Requires-Dist: flake8>=6.0.0
+Requires-Dist: aiohttp>=3.8.0
+Requires-Dist: asyncio-throttle>=1.0.0
+Provides-Extra: dev
+Requires-Dist: jupyter>=1.0.0; extra == "dev"
+Requires-Dist: ipython>=8.0.0; extra == "dev"
+Requires-Dist: matplotlib>=3.7.0; extra == "dev"
+Requires-Dist: seaborn>=0.12.0; extra == "dev"
+Requires-Dist: plotly>=5.15.0; extra == "dev"

@@ -1,0 +1,4 @@
+[console_scripts]
+ace-evaluate = agentcodeeval.evaluation.cli:main
+ace-generate = agentcodeeval.generation.cli:main
+agentcodeeval = agentcodeeval.cli:main
