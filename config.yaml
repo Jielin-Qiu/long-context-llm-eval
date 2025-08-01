@@ -37,7 +37,7 @@ data:
   # Project generation criteria
   min_files_per_project: 5
   max_files_per_project: 100
-  projects_per_language: 200  # For 12,000 total instances (6 languages × 200 = 1,200 projects)
+  projects_per_language: 1  # For testing: 6 languages × 1 = 6 sample projects (original: 200)
   
   # Complexity levels for synthetic projects
   complexity_distribution:

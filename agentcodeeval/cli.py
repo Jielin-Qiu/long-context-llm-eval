@@ -318,8 +318,24 @@ async def run_phase_1_generation(config):
                         total_generated += 1
                         
                 except Exception as e:
-                    console.print(f"   ❌ Failed {complexity.value} {domain.value}: {str(e)[:50]}...")
-                    continue
+                    # Check if it's an API key error - stop generation and report it clearly
+                    if hasattr(e, 'error_type') and e.error_type == "AUTH_FAILED":
+                        console.print(f"\n❌ [bold red]API KEY ERROR - Generation Stopped![/bold red]")
+                        console.print(f"   🔑 Provider: {e.provider}")
+                        console.print(f"   💥 Issue: {e.message}")
+                        console.print(f"\n🔧 [yellow]Action Required:[/yellow]")
+                        console.print(f"   1. Update your API key for {e.provider}")
+                        console.print(f"   2. Run: bash api.sh (to set all keys)")
+                        console.print(f"   3. Or export the specific key manually")
+                        return  # Stop generation immediately
+                    
+                    elif hasattr(e, 'error_type') and e.error_type == "RATE_LIMIT":
+                        console.print(f"   ⏳ {e.provider} rate limit - skipping this project")
+                        continue
+                    
+                    else:
+                        console.print(f"   ❌ Failed {complexity.value} {domain.value}: {str(e)[:80]}...")
+                        continue
             
             if lang_projects >= projects_per_language:
                 break

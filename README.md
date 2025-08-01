@@ -60,7 +60,10 @@ pip install -e .
 
 **🚀 Method A: Quick Setup (Recommended)**
 ```bash
-# One-command setup for all 3 Elite Models
+# 1. Copy template and add your real API keys
+cp api.sh.template api.sh
+# 2. Edit api.sh with your actual API keys
+# 3. Run the setup
 bash api.sh
 ```
 

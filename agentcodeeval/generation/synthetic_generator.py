@@ -10,6 +10,7 @@ import asyncio
 import json
 import logging
 import random
+import time
 from typing import Dict, List, Optional, Any, Tuple
 from pathlib import Path
 from dataclasses import dataclass, asdict
@@ -23,6 +24,72 @@ import json
 from ..core.config import Config
 
 logger = logging.getLogger(__name__)
+
+
+class APIError(Exception):
+    """Custom exception for API errors with specific provider info"""
+    def __init__(self, provider: str, error_type: str, message: str, original_error: Exception = None):
+        self.provider = provider
+        self.error_type = error_type
+        self.message = message
+        self.original_error = original_error
+        super().__init__(f"{provider} {error_type}: {message}")
+
+
+async def retry_with_backoff(func, max_retries: int = 3, base_delay: float = 1.0, max_delay: float = 60.0, provider: str = "Unknown"):
+    """
+    Retry function with exponential backoff for API calls
+    
+    Args:
+        func: Async function to retry
+        max_retries: Maximum number of retry attempts
+        base_delay: Initial delay in seconds
+        max_delay: Maximum delay in seconds
+        provider: API provider name for error reporting
+    """
+    last_exception = None
+    
+    for attempt in range(max_retries + 1):
+        try:
+            return await func()
+        except Exception as e:
+            last_exception = e
+            error_str = str(e).lower()
+            
+            # Check for specific error types
+            if "rate limit" in error_str or "quota" in error_str or "429" in error_str:
+                error_type = "RATE_LIMIT"
+                if attempt < max_retries:
+                    # For rate limits, wait longer
+                    delay = min(base_delay * (3 ** attempt), max_delay)
+                    logger.warning(f"🔄 {provider} rate limit hit. Retrying in {delay:.1f}s... (attempt {attempt + 1}/{max_retries + 1})")
+                    await asyncio.sleep(delay)
+                    continue
+                else:
+                    raise APIError(provider, error_type, f"Rate limit exceeded after {max_retries} retries", e)
+            
+            elif "unauthorized" in error_str or "invalid" in error_str or "api" in error_str and "key" in error_str or "401" in error_str or "403" in error_str:
+                error_type = "AUTH_FAILED"
+                # Don't retry auth failures - API key is invalid
+                raise APIError(provider, error_type, f"API key authentication failed: {str(e)}", e)
+            
+            elif "connection" in error_str or "timeout" in error_str or "network" in error_str or "502" in error_str or "503" in error_str or "504" in error_str:
+                error_type = "CONNECTION_ERROR"
+                if attempt < max_retries:
+                    delay = min(base_delay * (2 ** attempt), max_delay)
+                    logger.warning(f"🔄 {provider} connection error. Retrying in {delay:.1f}s... (attempt {attempt + 1}/{max_retries + 1})")
+                    await asyncio.sleep(delay)
+                    continue
+                else:
+                    raise APIError(provider, error_type, f"Connection failed after {max_retries} retries", e)
+            
+            else:
+                # Unknown error - don't retry
+                error_type = "UNKNOWN_ERROR"
+                raise APIError(provider, error_type, f"Unexpected error: {str(e)}", e)
+    
+    # Should never reach here, but just in case
+    raise APIError(provider, "RETRY_EXHAUSTED", f"All retries exhausted", last_exception)
 
 
 class ProjectComplexity(Enum):
@@ -155,28 +222,44 @@ class MultiLLMGenerator:
         logger.info("✅ Multi-LLM generator initialized")
     
     async def generate_with_openai(self, prompt: str, system_prompt: str = None) -> str:
-        """Generate content using OpenAI"""
-        messages = []
-        if system_prompt:
-            messages.append({"role": "system", "content": system_prompt})
-        messages.append({"role": "user", "content": prompt})
+        """Generate content using OpenAI with retry logic"""
         
-        response = await self.openai_client.chat.completions.create(
-            model=self.config.api.default_model_openai,
-            messages=messages,
-            temperature=0.7
-        )
+        async def _make_openai_call():
+            if not self.config.api.openai_api_key:
+                raise APIError("OpenAI", "AUTH_FAILED", "OpenAI API key not configured")
+            
+            messages = []
+            if system_prompt:
+                messages.append({"role": "system", "content": system_prompt})
+            messages.append({"role": "user", "content": prompt})
+            
+            # Handle o3 model special API format
+            if self.config.api.default_model_openai.startswith(("o1", "o3")):
+                response = await self.openai_client.chat.completions.create(
+                    model=self.config.api.default_model_openai,
+                    messages=messages,
+                    max_completion_tokens=4000
+                )
+            else:
+                response = await self.openai_client.chat.completions.create(
+                    model=self.config.api.default_model_openai,
+                    messages=messages,
+                    max_tokens=4000,
+                    temperature=0.7
+                )
+            
+            return response.choices[0].message.content
         
-        return response.choices[0].message.content
+        return await retry_with_backoff(_make_openai_call, provider="OpenAI o3")
     
     async def generate_with_anthropic(self, prompt: str, system_prompt: str = None) -> str:
-        """Generate content using Anthropic (via Bedrock or direct API)"""
-        if self.use_bedrock:
-            # Use AWS Bedrock with correct format from official documentation
-            # Format according to: https://docs.aws.amazon.com/bedrock/latest/userguide/bedrock-runtime_example_bedrock-runtime_InvokeModel_AnthropicClaude_section.html
+        """Generate content using Claude Sonnet 4 via AWS Bedrock with retry logic"""
+        
+        async def _make_anthropic_call():
+            if not self.use_bedrock:
+                raise APIError("Claude Sonnet 4", "AUTH_FAILED", "AWS Bedrock credentials not configured properly")
             
-            # Build message content in correct format
-            # For Claude 3 via Bedrock, include system prompt in user message if provided
+            # Build message content in correct format for Claude Sonnet 4
             user_content = prompt
             if system_prompt:
                 user_content = f"{system_prompt}\n\n{prompt}"
@@ -195,87 +278,60 @@ class MultiLLMGenerator:
                 "messages": messages
             }
             
-            # Elite Claude 4 model (confirmed working via AWS Bedrock inference profile)
-            model_ids = [
-                "us.anthropic.claude-sonnet-4-20250514-v1:0",  # ✅ Claude Sonnet 4 (37.82s, 15,923 chars)
-            ]
+            # Elite Claude Sonnet 4 model (confirmed working)
+            model_id = "us.anthropic.claude-sonnet-4-20250514-v1:0"
             
             # Run Bedrock call in thread pool since it's synchronous
-            import asyncio
             loop = asyncio.get_event_loop()
+            request_body = json.dumps(body)
             
-            response = None
-            successful_model = None
-            
-            for model_id in model_ids:
-                try:
-                    # Special handling for Claude V2 which uses different format
-                    if model_id == "anthropic.claude-v2":
-                        # Claude V2 uses the older format
-                        v2_body = {
-                            "prompt": f"\n\nHuman: {system_prompt or ''}\n\n{prompt}\n\nAssistant:",
-                            "max_tokens_to_sample": 4000,
-                            "temperature": 0.7,
-                            "stop_sequences": ["\n\nHuman:"]
-                        }
-                        request_body = json.dumps(v2_body)
-                    else:
-                        # Claude 3 uses the messages format
-                        request_body = json.dumps(body)
-                    
-                    response = await loop.run_in_executor(
-                        None,
-                        lambda: self.bedrock_client.invoke_model(
-                            modelId=model_id,
-                            body=request_body,
-                            contentType="application/json"
-                        )
-                    )
-                    
-                    successful_model = model_id
-                    logger.debug(f"✅ Successfully used Claude model: {model_id}")
-                    break
-                    
-                except Exception as model_error:
-                    logger.debug(f"❌ Failed with model {model_id}: {model_error}")
-                    continue
-            
-            if not response:
-                raise Exception("No Claude models available on Bedrock")
+            response = await loop.run_in_executor(
+                None,
+                lambda: self.bedrock_client.invoke_model(
+                    modelId=model_id,
+                    body=request_body,
+                    contentType="application/json"
+                )
+            )
             
             # Parse response according to AWS documentation
             response_body = json.loads(response['body'].read())
-            
-            if successful_model == "anthropic.claude-v2":
-                # Claude V2 response format
-                return response_body['completion']
-            else:
-                # Claude 3 response format
-                return response_body['content'][0]['text']
-        else:
-            # Use direct Anthropic API
-            response = await self.anthropic_client.messages.create(
-                model=self.config.api.default_model_anthropic,
-                max_tokens=4000,
-                system=system_prompt or "You are a senior software architect.",
-                messages=[{"role": "user", "content": prompt}]
-            )
-            
-            return response.content[0].text
+            return response_body['content'][0]['text']
+        
+        return await retry_with_backoff(_make_anthropic_call, provider="Claude Sonnet 4 (AWS Bedrock)")
     
     async def generate_with_google(self, prompt: str, system_prompt: str = None) -> str:
-        """Generate content using Google Gemini"""
-        model = genai.GenerativeModel(self.config.api.default_model_google)
+        """Generate content using Gemini 2.5 Pro with retry logic"""
         
-        full_prompt = prompt
-        if system_prompt:
-            full_prompt = f"{system_prompt}\n\n{prompt}"
+        async def _make_google_call():
+            if not self.config.api.google_api_key:
+                raise APIError("Gemini 2.5 Pro", "AUTH_FAILED", "Google API key not configured")
+            
+            # Configure generation parameters for high-quality code generation
+            generation_config = genai.types.GenerationConfig(
+                temperature=0.7,
+                max_output_tokens=4000,
+                top_p=0.95,
+                top_k=40
+            )
+            
+            model = genai.GenerativeModel(
+                model_name=self.config.api.default_model_google,
+                generation_config=generation_config
+            )
+            
+            full_prompt = prompt
+            if system_prompt:
+                full_prompt = f"{system_prompt}\n\n{prompt}"
+            
+            # Use synchronous call to avoid async issues with Gemini
+            response = model.generate_content(full_prompt)
+            return response.text
         
-        response = await model.generate_content_async(full_prompt)
-        return response.text
+        return await retry_with_backoff(_make_google_call, provider="Gemini 2.5 Pro")
     
     async def generate_with_model(self, model_type: str, prompt: str, system_prompt: str = None) -> str:
-        """Generate content with specified model type, with fallback support"""
+        """Generate content with specified model type - NO FALLBACKS"""
         try:
             if model_type == "openai":
                 return await self.generate_with_openai(prompt, system_prompt)
@@ -285,18 +341,22 @@ class MultiLLMGenerator:
                 return await self.generate_with_google(prompt, system_prompt)
             else:
                 raise ValueError(f"Unknown model type: {model_type}")
+        except APIError as e:
+            # Re-raise APIError with additional context about model assignment
+            raise APIError(
+                provider=e.provider,
+                error_type=e.error_type,
+                message=f"Model assignment '{model_type}' failed: {e.message}",
+                original_error=e.original_error
+            )
         except Exception as e:
-            logger.warning(f"Failed to generate with {model_type}: {e}")
-            # Fallback to OpenAI if available
-            if model_type != "openai":
-                logger.info(f"Falling back to OpenAI for {model_type} request")
-                try:
-                    return await self.generate_with_openai(prompt, system_prompt)
-                except Exception as e2:
-                    logger.error(f"OpenAI fallback also failed: {e2}")
-                    raise e2
-            else:
-                raise e
+            # Convert unexpected errors to APIError
+            raise APIError(
+                provider=f"{model_type.title()}",
+                error_type="UNEXPECTED_ERROR",
+                message=f"Unexpected error in {model_type}: {str(e)}",
+                original_error=e
+            )
 
 
 class ProjectTemplateManager:
