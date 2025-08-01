@@ -110,13 +110,14 @@ class MultiLLMGenerator:
         self.config = config
         self.setup_llm_clients()
         
-        # Generator specialization
+        # Generator specialization (using 3 Elite Models)
+        # ✅ OpenAI o3: 43.94s, 13,770 chars | ✅ Claude Sonnet 4: 37.82s, 15,923 chars | ✅ Gemini 2.5 Pro: Confirmed
         self.generators = {
-            "requirements": "openai",      # Best for structured requirements
-            "architecture": "anthropic",   # Excellent at system design
-            "implementation": "openai",    # Strong at code generation
-            "scenarios": "anthropic",      # Good at realistic scenarios
-            "validation": "google"         # Alternative perspective
+            "requirements": "openai",      # OpenAI o3 - Best for structured requirements
+            "architecture": "anthropic",   # Claude Sonnet 4 - Excellent at system design
+            "implementation": "openai",    # OpenAI o3 - Strong at code generation
+            "scenarios": "anthropic",      # Claude Sonnet 4 - Good at realistic scenarios
+            "validation": "google"         # Gemini 2.5 Pro - Alternative perspective
         }
     
     def setup_llm_clients(self):
@@ -194,11 +195,9 @@ class MultiLLMGenerator:
                 "messages": messages
             }
             
-            # Use correct model IDs from AWS documentation
+            # Elite Claude 4 model (confirmed working via AWS Bedrock inference profile)
             model_ids = [
-                "anthropic.claude-3-sonnet-20240229-v1:0",    # Claude 3 Sonnet  
-                "anthropic.claude-3-haiku-20240307-v1:0",     # Claude 3 Haiku 
-                "anthropic.claude-v2"                         # Claude V2 (fallback)
+                "us.anthropic.claude-sonnet-4-20250514-v1:0",  # ✅ Claude Sonnet 4 (37.82s, 15,923 chars)
             ]
             
             # Run Bedrock call in thread pool since it's synchronous

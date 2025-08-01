@@ -22,9 +22,10 @@ class APIConfig:
     max_concurrent_requests: int = 10
     
     # Model configurations
-    default_model_openai: str = "gpt-4o"
-    default_model_anthropic: str = "claude-3-5-sonnet-20241022"
-    default_model_google: str = "gemini-1.5-pro-latest"
+    # 🏆 3 Elite Models Ready for AgentCodeEval:
+    default_model_openai: str = "o3"                                  # ✅ Elite: OpenAI o3 (reasoning model)
+    default_model_anthropic: str = "claude-sonnet-4-20250514"         # ✅ Elite: Claude Sonnet 4 via AWS Bedrock
+    default_model_google: str = "gemini-2.5-pro"                      # ✅ Elite: Gemini 2.5 Pro (latest)
 
 
 @dataclass
@@ -274,13 +275,21 @@ class Config:
         """Validate configuration and return list of errors"""
         errors = []
         
-        # Check API keys
+        # Check API keys (including AWS Bedrock for Claude)
+        import os
+        aws_configured = all([
+            os.getenv('AWS_ACCESS_KEY_ID'),
+            os.getenv('AWS_SECRET_ACCESS_KEY'), 
+            os.getenv('AWS_SESSION_TOKEN')
+        ])
+        anthropic_available = self.api.anthropic_api_key or aws_configured
+        
         if not any([
             self.api.openai_api_key,
-            self.api.anthropic_api_key, 
+            anthropic_available,  # Direct Anthropic API or AWS Bedrock
             self.api.google_api_key
         ]):
-            errors.append("At least one API key must be provided")
+            errors.append("At least one API key must be provided (OpenAI, Anthropic/AWS Bedrock, or Google)")
             
         # Check directory permissions
         try:

@@ -56,12 +56,21 @@ pip install -r requirements.txt
 pip install -e .
 ```
 
-3. **Set up API keys**:
+3. **Set up API keys** (choose one method):
+
+**🚀 Method A: Quick Setup (Recommended)**
 ```bash
-export OPENAI_API_KEY="your-openai-key-here"
-export ANTHROPIC_API_KEY="your-anthropic-key-here"
-export GOOGLE_API_KEY="your-google-key-here"
-export HUGGINGFACE_TOKEN="your-hf-token-here"
+# One-command setup for all 3 Elite Models
+bash api.sh
+```
+
+**🔧 Method B: Manual Setup** 
+```bash
+export OPENAI_API_KEY="your-openai-key-here"          # For OpenAI o3
+export AWS_ACCESS_KEY_ID="your-aws-access-key"        # For Claude Sonnet 4
+export AWS_SECRET_ACCESS_KEY="your-aws-secret-key"    # For Claude Sonnet 4
+export AWS_SESSION_TOKEN="your-aws-session-token"     # For Claude Sonnet 4  
+export GOOGLE_API_KEY="your-google-key-here"          # For Gemini 2.5 Pro
 ```
 
 4. **Initialize configuration**:
@@ -92,7 +101,7 @@ agentcodeeval generate --phase all
 
 4. **Evaluate models**:
 ```bash
-agentcodeeval evaluate --model gpt-4o --task-category architectural_understanding
+agentcodeeval evaluate --model o3 --task-category architectural_understanding
 ```
 
 ## 🏗️ Development Pipeline
@@ -100,7 +109,7 @@ agentcodeeval evaluate --model gpt-4o --task-category architectural_understandin
 AgentCodeEval follows a 4-phase **synthetic generation pipeline** to eliminate data contamination:
 
 ### Phase 1: Project Specification Generation
-- **Multi-LLM System**: OpenAI, Anthropic, Google for diverse perspectives  
+- **🏆 3 Elite Models**: OpenAI o3, Claude Sonnet 4, Gemini 2.5 Pro for maximum quality  
 - **Domain Coverage**: Web apps, data pipelines, ML systems, APIs, games, blockchain
 - **Realistic Complexity**: Easy (5-15 files) to Expert (80-150 files)
 - **Output**: 1,200 unique project specifications (200 per language)
@@ -118,7 +127,7 @@ AgentCodeEval follows a 4-phase **synthetic generation pipeline** to eliminate d
 - **Output**: 12,000 evaluation instances with ground truth solutions
 
 ### Phase 4: Quality Validation and Deployment
-- **Multi-Model Validation**: Cross-verification using different LLMs
+- **Elite Model Validation**: Cross-verification using o3, Claude Sonnet 4, Gemini 2.5 Pro
 - **Automated Quality Checks**: Complexity scoring, dependency analysis
 - **Human Expert Review**: Sample validation by senior engineers  
 - **Output**: Production-ready benchmark with automated evaluation
@@ -144,7 +153,7 @@ AgentCodeEval uses YAML configuration files. Example:
 # config.yaml
 api:
   max_requests_per_minute: 60
-  default_model_openai: "gpt-4o"
+  default_model_openai: "o3"  # 🏆 Elite model: 43.94s, 13,770 chars
 
 benchmark:
   total_instances: 12000
