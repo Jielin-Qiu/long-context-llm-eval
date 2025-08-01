@@ -162,7 +162,7 @@ class Config:
         # API keys
         self.api.openai_api_key = os.getenv("OPENAI_API_KEY")
         self.api.anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
-        self.api.google_api_key = os.getenv("GOOGLE_API_KEY")
+        self.api.google_api_key = os.getenv("GEMINI_API_KEY")  # Using GEMINI_API_KEY for clarity
         self.api.huggingface_token = os.getenv("HUGGINGFACE_TOKEN")
         
         # Override data paths if set

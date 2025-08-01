@@ -1,5 +1,5 @@
-# AgentCodeEval Configuration File
-# Copy this file and customize for your setup
+# AgentCodeEval Test Configuration File
+# Optimized for testing and development with smaller numbers
 
 api:
   # API Keys (set via environment variables for security)
@@ -34,17 +34,17 @@ data:
     - cpp
     - go
   
-  # Project generation criteria
+  # Project generation criteria (TESTING VALUES)
   min_files_per_project: 5
-  max_files_per_project: 100
-  projects_per_language: 1  # For testing: 6 languages × 1 = 6 sample projects (original: 200)
+  max_files_per_project: 20  # Smaller for testing
+  projects_per_language: 1   # Just 1 project per language for testing
   
   # Complexity levels for synthetic projects
   complexity_distribution:
-    easy: 0.25      # 25% easy projects
-    medium: 0.40    # 40% medium projects
-    hard: 0.25      # 25% hard projects
-    expert: 0.10    # 10% expert projects
+    easy: 0.50      # 50% easy projects (more for testing)
+    medium: 0.30    # 30% medium projects
+    hard: 0.15      # 15% hard projects
+    expert: 0.05    # 5% expert projects
   
   # Generation quality controls
   min_complexity_score: 0.3
@@ -52,41 +52,41 @@ data:
   min_documentation_ratio: 0.1
 
 benchmark:
-  # Scale parameters
-  total_instances: 12000
+  # Scale parameters (TESTING VALUES)
+  total_instances: 16  # Fast testing: 1 project × 8 categories × 2 = 16 scenarios
   
   # Task category distribution (must sum to total_instances)
   task_distribution:
-    architectural_understanding: 1500
-    cross_file_refactoring: 1500
-    feature_implementation: 1900  # +100
-    bug_investigation: 1600      # +100
-    multi_session_development: 1200
-    code_comprehension: 1600     # +100
-    integration_testing: 1400    # +100
-    security_analysis: 1300      # +100
+    architectural_understanding: 2   # 2 scenarios per category for fast testing
+    cross_file_refactoring: 2
+    feature_implementation: 2
+    bug_investigation: 2
+    multi_session_development: 2
+    code_comprehension: 2
+    integration_testing: 2
+    security_analysis: 2
   
   # Difficulty distribution (must sum to total_instances)
   difficulty_distribution:
-    easy: 3200      # 10K-40K tokens
-    medium: 4500    # 40K-100K tokens
-    hard: 3600      # 100K-200K tokens
-    expert: 700     # 200K+ tokens
+    easy: 8         # 50% easy (8/16)
+    medium: 5       # 31% medium (5/16)
+    hard: 2         # 13% hard (2/16)
+    expert: 1       # 6% expert (1/16)
   
   # Context length ranges (min_tokens, max_tokens)
   context_ranges:
-    easy: [10000, 40000]
-    medium: [40000, 100000]
-    hard: [100000, 200000]
-    expert: [200000, 500000]
+    easy: [5000, 20000]      # Smaller for testing
+    medium: [20000, 50000]   # Smaller for testing
+    hard: [50000, 100000]    # Smaller for testing
+    expert: [100000, 200000] # Smaller for testing
   
   # Information coverage requirements
   min_information_coverage: 0.7
   target_information_coverage:
     easy: 0.75
-    medium: 0.85
-    hard: 0.90
-    expert: 0.95
+    medium: 0.80    # Lower for testing
+    hard: 0.85      # Lower for testing
+    expert: 0.90    # Lower for testing
 
 evaluation:
   # Metric weights for CADS (Composite Agent Development Score)
@@ -114,9 +114,9 @@ evaluation:
       min: 0.0
       max: 2.0
   
-  # Timeout settings (seconds)
-  task_timeout: 300      # 5 minutes per task
-  session_timeout: 1800  # 30 minutes per session
+  # Timeout settings (seconds) - Shorter for testing
+  task_timeout: 180      # 3 minutes per task (shorter for testing)
+  session_timeout: 900   # 15 minutes per session (shorter for testing)
   
   # Validation settings
   human_validation_ratio: 0.05  # 5% manual validation

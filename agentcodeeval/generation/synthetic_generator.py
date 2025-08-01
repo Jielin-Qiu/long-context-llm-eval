@@ -777,26 +777,165 @@ class SyntheticProjectGenerator:
                 "Test integration points"
             ]
     
-    async def save_project(self, project: SyntheticProject) -> str:
-        """Save generated project to disk"""
-        project_dir = self.generated_dir / f"{project.specification.name.replace(' ', '_').lower()}"
-        project_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Save project metadata
-        metadata_file = project_dir / "project_metadata.json"
-        with open(metadata_file, 'w') as f:
-            json.dump(project.to_dict(), f, indent=2)
+    async def save_project(self, project: SyntheticProject) -> Path:
+        """Save a synthetic project to disk"""
+        # Create project directory
+        safe_name = project.specification.name.lower().replace(' ', '_').replace('-', '_')
+        project_dir = self.generated_dir / safe_name
+        project_dir.mkdir(exist_ok=True)
         
         # Save individual files
         for file in project.files:
-            file_path = project_dir / file.path.lstrip('/')
+            file_path = project_dir / file.path
             file_path.parent.mkdir(parents=True, exist_ok=True)
             
-            with open(file_path, 'w') as f:
+            with open(file_path, 'w', encoding='utf-8') as f:
                 f.write(file.content)
         
+        # Save project metadata
+        metadata = {
+            "specification": {
+                "name": project.specification.name,
+                "description": project.specification.description,
+                "domain": project.specification.domain.value,
+                "complexity": project.specification.complexity.value,
+                "language": project.specification.language,
+                "target_file_count": project.specification.target_file_count,
+                "target_token_count": project.specification.target_token_count,
+                "features": project.specification.features,
+                "architecture_patterns": project.specification.architecture_patterns,
+                "dependencies": project.specification.dependencies
+            },
+            "files": [{"path": f.path, "type": f.file_type} for f in project.files],
+            "file_structure": project.file_structure,
+            "architecture_overview": project.architecture_overview,
+            "setup_instructions": project.setup_instructions,
+            "test_scenarios": project.test_scenarios
+        }
+        
+        with open(project_dir / "project_metadata.json", 'w') as f:
+            json.dump(metadata, f, indent=2)
+        
         logger.info(f"Saved project to {project_dir}")
-        return str(project_dir)
+        return project_dir
+
+    async def generate_project_files(self, spec_dict: dict, target_files: int, target_tokens: int) -> List[dict]:
+        """Generate actual code files for a project specification from Phase 1"""
+        
+        # Import Rich console for progress reporting
+        from rich.console import Console
+        console = Console()
+        
+        # Convert dict back to ProjectSpecification object
+        spec = ProjectSpecification(
+            name=spec_dict['name'],
+            description=spec_dict['description'],
+            domain=ProjectDomain(spec_dict['domain']),
+            complexity=ProjectComplexity(spec_dict['complexity']),
+            language=spec_dict['language'],
+            target_file_count=target_files,
+            target_token_count=target_tokens,
+            features=spec_dict.get('features', []),
+            architecture_patterns=spec_dict.get('architecture_patterns', []),
+            dependencies=spec_dict.get('dependencies', [])
+        )
+        
+        # Generate a proper file structure for this project
+        file_structure, _ = await self.generate_project_architecture(spec)
+        
+        # Extract file paths from the structure
+        file_paths = self._extract_file_paths(file_structure)
+        
+        # Limit to target_files if we have too many
+        if len(file_paths) > target_files:
+            file_paths = file_paths[:target_files]
+        
+        # Generate additional files if we need more
+        elif len(file_paths) < target_files:
+            additional_files = await self._generate_additional_files(spec, target_files - len(file_paths))
+            file_paths.extend(additional_files)
+        
+        # Generate content for each file using our 3 Elite Models
+        generated_files = []
+        
+        console.print(f"      🏭 Generating {len(file_paths)} files...")
+        
+        for i, file_path in enumerate(file_paths, 1):
+            try:
+                # Show progress for each file
+                console.print(f"      📄 {i}/{len(file_paths)}: {file_path}", end="")
+                
+                generated_file = await self.generate_file_content(file_path, spec, file_structure)
+                
+                lines_count = len(generated_file.content.splitlines())
+                chars_count = len(generated_file.content)
+                
+                generated_files.append({
+                    'path': file_path,
+                    'content': generated_file.content,
+                    'type': self._classify_file_type(file_path)
+                })
+                
+                console.print(f" ✅ ({lines_count} lines, {chars_count:,} chars)")
+                
+            except Exception as e:
+                console.print(f" ❌ Error: {str(e)}")
+                logger.error(f"Failed to generate file {file_path}: {e}")
+                # Create a minimal placeholder file
+                placeholder_content = f"# {spec.name}\n# TODO: Implement {file_path}\n# Error: {str(e)}\n"
+                generated_files.append({
+                    'path': file_path,
+                    'content': placeholder_content,
+                    'type': self._classify_file_type(file_path)
+                })
+        
+        total_lines = sum(len(f['content'].splitlines()) for f in generated_files)
+        total_chars = sum(len(f['content']) for f in generated_files)
+        console.print(f"      🎉 [bold green]All files generated![/bold green] {len(generated_files)} files, {total_lines:,} lines, {total_chars:,} chars")
+        
+        return generated_files
+    
+    async def _generate_additional_files(self, spec: ProjectSpecification, count: int) -> List[str]:
+        """Generate additional file paths if needed to reach target file count"""
+        
+        lang_extensions = {
+            'python': '.py',
+            'javascript': '.js', 
+            'typescript': '.ts',
+            'java': '.java',
+            'cpp': '.cpp',
+            'go': '.go'
+        }
+        
+        ext = lang_extensions.get(spec.language, '.txt')
+        additional_files = []
+        
+        # Generate common additional files based on project type
+        base_files = [
+            f"src/utils{ext}",
+            f"src/config{ext}",
+            f"src/constants{ext}",
+            f"tests/test_main{ext}",
+            f"tests/test_utils{ext}",
+            "README.md",
+            "requirements.txt" if spec.language == 'python' else "package.json",
+            ".gitignore",
+            "Dockerfile",
+            f"docs/api{'.md'}",
+        ]
+        
+        # Add files until we reach the target count
+        for i, file_path in enumerate(base_files):
+            if i >= count:
+                break
+            additional_files.append(file_path)
+        
+        # If we still need more files, generate numbered modules
+        remaining = count - len(additional_files)
+        for i in range(remaining):
+            additional_files.append(f"src/module_{i+1}{ext}")
+        
+        return additional_files
 
 
 # Example usage and testing
