@@ -91,7 +91,33 @@ class AgentEvaluator:
         self.results: List[ModelEvaluationResult] = []
         
     async def evaluate_model_on_scenario(self, model_name: str, scenario: Dict[str, Any]) -> Optional[ModelEvaluationResult]:
-        """Evaluate a single model on a single scenario"""
+        """Evaluate a single model on a single scenario with timeout enforcement"""
+        
+        scenario_id = scenario.get('id', 'unknown')
+        
+        try:
+            # Determine timeout based on scenario type
+            is_multi_session = scenario.get('task_category') == 'multi_session_development'
+            timeout_seconds = (self.config.evaluation.session_timeout if is_multi_session 
+                              else self.config.evaluation.task_timeout)
+            
+            # Wrap entire evaluation in timeout
+            return await asyncio.wait_for(
+                self._evaluate_model_on_scenario_internal(model_name, scenario),
+                timeout=timeout_seconds
+            )
+            
+        except asyncio.TimeoutError:
+            logger.warning(
+                f"⏰ Timeout: Model {model_name} exceeded {timeout_seconds}s on scenario {scenario_id}"
+            )
+            return None
+        except Exception as e:
+            logger.error(f"Error evaluating {model_name} on scenario {scenario_id}: {e}")
+            return None
+    
+    async def _evaluate_model_on_scenario_internal(self, model_name: str, scenario: Dict[str, Any]) -> Optional[ModelEvaluationResult]:
+        """Internal evaluation method without timeout wrapper"""
         
         scenario_id = scenario.get('id', 'unknown')
         
@@ -384,10 +410,12 @@ class AgentEvaluator:
                     }
                 },
                 'evaluation_weights': {
-                    'functional': getattr(self.config.evaluation.metric_weights, 'functional_correctness', 0.4),
-                    'agent_metrics': getattr(self.config.evaluation.metric_weights, 'agent_specific_metrics', 0.3),
-                    'quality': getattr(self.config.evaluation.metric_weights, 'code_quality', 0.2),
-                    'style': getattr(self.config.evaluation.metric_weights, 'style_and_practices', 0.1)
+                    'architectural_coherence': self.config.evaluation.metric_weights.get('architectural_coherence', 0.20),
+                    'dependency_traversal': self.config.evaluation.metric_weights.get('dependency_traversal', 0.20),
+                    'multi_session_memory': self.config.evaluation.metric_weights.get('multi_session_memory', 0.20),
+                    'cross_file_reasoning': self.config.evaluation.metric_weights.get('cross_file_reasoning', 0.15),
+                    'incremental_development': self.config.evaluation.metric_weights.get('incremental_development', 0.15),
+                    'information_coverage': self.config.evaluation.metric_weights.get('information_coverage', 0.10)
                 },
                 'benchmark_settings': {
                     'total_instances': getattr(self.config.benchmark, 'total_instances', 'N/A'),
@@ -556,19 +584,35 @@ Generate your response now:"""
         return filtered
 
     def _get_letter_grade(self, score: float) -> str:
-        """Convert score to letter grade"""
-        if score >= 0.9:
-            return "A+ (Excellent)"
-        elif score >= 0.8:
-            return "A (Very Good)"
-        elif score >= 0.7:
-            return "B (Good)"
-        elif score >= 0.6:
+        """Convert numeric score to letter grade using config thresholds"""
+        thresholds = self.config.evaluation.score_thresholds
+        
+        if score >= thresholds["excellent"]["min"]:
+            return "A (Excellent)"
+        elif score >= thresholds["good"]["min"]:
+            return "B (Good)" 
+        elif score >= thresholds["fair"]["min"]:
             return "C (Fair)"
-        elif score >= 0.5:
-            return "D (Poor)"
         else:
-            return "F (Failing)"
+            return "F (Poor)"
+    
+    def _get_score_classification(self, score: float) -> str:
+        """Classify score using config thresholds"""
+        thresholds = self.config.evaluation.score_thresholds
+        
+        if score >= thresholds["excellent"]["min"]:
+            return "excellent"
+        elif score >= thresholds["good"]["min"]:
+            return "good"
+        elif score >= thresholds["fair"]["min"]:
+            return "fair"
+        else:
+            return "poor"
+    
+    def _determine_pass_fail(self, score: float) -> bool:
+        """Determine if score represents a pass using config thresholds"""
+        # Consider "fair" (2.0+) and above as passing
+        return score >= self.config.evaluation.score_thresholds["fair"]["min"]
 
     def _display_category_breakdown(self, summaries: Dict[str, EvaluationSummary]):
         """Display category-wise performance breakdown"""

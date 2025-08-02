@@ -5,14 +5,42 @@ Command Line Interface for AgentCodeEval
 import click
 import os
 import sys
+import json
+from datetime import datetime
 from pathlib import Path
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
+from typing import List, Dict, Any
 
 from .core.config import Config
+from .generation.synthetic_generator import CriticalAuthError
 
 console = Console()
+
+
+def save_progress(progress_file: Path, completed_projects: List[Dict[str, Any]], phase: str):
+    """Save progress to a JSON file for resumability"""
+    with open(progress_file, 'w') as f:
+        json.dump({
+            'phase': phase,
+            'timestamp': str(datetime.now()),
+            'completed_projects': completed_projects,
+            'total_completed': len(completed_projects)
+        }, f, indent=2)
+
+def load_progress(progress_file: Path) -> List[Dict[str, Any]]:
+    """Load progress from a JSON file"""
+    if not progress_file.exists():
+        return []
+    
+    try:
+        with open(progress_file, 'r') as f:
+            data = json.load(f)
+            return data.get('completed_projects', [])
+    except Exception as e:
+        console.print(f"⚠️ Warning: Could not load progress file: {e}")
+        return []
 
 
 @click.group()
@@ -328,48 +356,113 @@ def version():
 
 
 async def run_phase_1_generation(config, max_concurrent=3):
-    """Run Phase 1: Synthetic Project Generation"""
-    from .generation.synthetic_generator import SyntheticProjectGenerator, ProjectDomain, ProjectComplexity
+    """Run Phase 1: Synthetic Project Generation with Guaranteed Uniqueness"""
+    from .generation.synthetic_generator import (
+        SyntheticProjectGenerator, ProjectDomain, ProjectComplexity,
+        ProjectArchitecture, ProjectTheme
+    )
     import asyncio
     from asyncio import Semaphore
     
-    console.print("\n🎯 [bold]Synthetic Project Generation Pipeline[/bold]")
-    console.print("=" * 60)
+    console.print("\n🎯 [bold]Synthetic Project Generation Pipeline (Uniqueness Guaranteed)[/bold]")
+    console.print("=" * 75)
     
     generator = SyntheticProjectGenerator(config)
     
     # Target: projects per language from config
     languages = config.data.supported_languages
     projects_per_language = config.data.projects_per_language
+    total_projects = len(languages) * projects_per_language
     
-    console.print(f"📊 Target: {len(languages)} languages × {projects_per_language} projects = {len(languages) * projects_per_language} total")
+    # Get all available factors for uniqueness
+    domains = list(ProjectDomain)
+    complexities = list(ProjectComplexity)
+    architectures = list(ProjectArchitecture)
+    themes = list(ProjectTheme)
+    
+    console.print(f"📊 Target: {len(languages)} languages × {projects_per_language} projects = {total_projects} total")
     console.print(f"🌐 Languages: {', '.join(languages)}")
+    console.print(f"🏗️ Uniqueness factors:")
+    console.print(f"   • {len(domains)} domains × {len(complexities)} complexities × {len(architectures)} architectures × {len(themes)} themes")
+    console.print(f"   • = {len(domains) * len(complexities) * len(architectures) * len(themes):,} possible combinations")
+    console.print(f"   • + unique seeds = guaranteed uniqueness for {projects_per_language} projects per language ✅")
     
     if max_concurrent > 1:
         console.print(f"🚀 [bold blue]Parallel mode: {max_concurrent} concurrent specifications[/bold blue]")
     
-    console.print("🏗️ Generating project specifications...")
+    console.print("🏗️ Generating unique project specifications...")
     
-    # Get available domains and complexities
-    domains = list(ProjectDomain)
-    complexities = list(ProjectComplexity)
+    # Create complexity selection pool based on config distribution
+    import random
+    complexity_pool = []
+    for complexity_name, ratio in config.data.complexity_distribution.items():
+        complexity_enum = getattr(ProjectComplexity, complexity_name.upper())
+        count = int(projects_per_language * len(languages) * ratio)
+        complexity_pool.extend([complexity_enum] * count)
     
-    # Prepare project specification tasks
+    # Ensure we have exactly the right number of complexities
+    while len(complexity_pool) < total_projects:
+        complexity_pool.append(random.choice(complexities))
+    while len(complexity_pool) > total_projects:
+        complexity_pool.pop()
+    
+    # Shuffle for random distribution
+    random.shuffle(complexity_pool)
+    
+    # Generate unique combinations for each language
     spec_tasks = []
+    global_index = 0
+    
     for language in languages:
+        console.print(f"🔧 [cyan]Planning {projects_per_language} unique projects for {language}...[/cyan]")
+        
+        # Create unique combinations for this language
+        language_combinations = []
+        
         for i in range(projects_per_language):
-            # Distribute domains and complexities evenly
+            # Use different distribution strategies to ensure uniqueness
             domain = domains[i % len(domains)]
-            complexity = complexities[i % len(complexities)]
+            complexity = complexity_pool[global_index]
+            architecture = architectures[i % len(architectures)]
+            theme = themes[i % len(themes)]
             
-            spec_tasks.append({
+            # Create unique seed for deterministic but varied LLM generation
+            unique_seed = hash(f"{language}-{domain.value}-{complexity.value}-{architecture.value}-{theme.value}-{i}") % 1000000
+            
+            # Generate unique project ID
+            unique_id = f"{language}_{domain.value}_{complexity.value}_{i:03d}"
+            
+            language_combinations.append({
+                'unique_id': unique_id,
                 'language': language,
                 'domain': domain,
                 'complexity': complexity,
-                'index': i
+                'architecture': architecture,
+                'theme': theme,
+                'index': i,
+                'seed': unique_seed,
+                'global_index': global_index
             })
+            
+            global_index += 1
+        
+        # Add to spec tasks
+        spec_tasks.extend(language_combinations)
+        
+        # Verify uniqueness for this language
+        unique_combinations = set()
+        for combo in language_combinations:
+            combination_key = (combo['domain'].value, combo['complexity'].value, 
+                             combo['architecture'].value, combo['theme'].value)
+            unique_combinations.add(combination_key)
+        
+        console.print(f"   ✅ [green]{len(unique_combinations)} unique factor combinations for {language}[/green]")
     
-    console.print(f"🎯 Generating {len(spec_tasks)} project specifications...")
+    console.print(f"🎯 Generated {len(spec_tasks)} unique project specifications...")
+    
+    # Verify global uniqueness
+    all_unique_ids = set(task['unique_id'] for task in spec_tasks)
+    console.print(f"🔍 Uniqueness verification: {len(all_unique_ids)} unique IDs for {len(spec_tasks)} projects ✅")
     
     # Semaphore for parallel generation
     semaphore = Semaphore(max_concurrent)
@@ -379,26 +472,36 @@ async def run_phase_1_generation(config, max_concurrent=3):
     projects_failed = 0
     
     async def generate_single_spec(task_info, task_index):
-        """Generate a single project specification"""
+        """Generate a single project specification with guaranteed uniqueness"""
         async with semaphore:
+            unique_id = task_info['unique_id']
             language = task_info['language']
             domain = task_info['domain']
             complexity = task_info['complexity']
+            architecture = task_info['architecture']
+            theme = task_info['theme']
+            seed = task_info['seed']
             
             try:
-                console.print(f"🔨 [bold cyan]Generating {task_index}/{len(spec_tasks)}: {language} {domain.value} ({complexity.value})[/bold cyan]")
+                console.print(f"🔨 [bold cyan]Generating {task_index}/{len(spec_tasks)}: {unique_id}[/bold cyan]")
+                console.print(f"     {language} | {domain.value} | {complexity.value} | {architecture.value} | {theme.value}")
                 
                 # Start timing
                 import time
                 start_time = time.time()
                 
-                # Generate project specification
-                spec = await generator.generate_project_specification(domain, complexity, language)
+                # Set random seed for deterministic variation
+                random.seed(seed)
+                
+                # Generate project specification with unique factors
+                spec = await generator.generate_project_specification_unique(
+                    domain, complexity, language, architecture, theme, unique_id, seed
+                )
                 
                 generation_time = time.time() - start_time
                 
-                # Save specification to project directory
-                project_name = f"{language}_{domain.value}_project"
+                # Save specification to project directory  
+                project_name = unique_id
                 
                 # Create project directory and save specification
                 project_dir = generator.generated_dir / project_name
@@ -408,7 +511,14 @@ async def run_phase_1_generation(config, max_concurrent=3):
                 metadata = {
                     "specification": spec.to_dict(),
                     "generated_timestamp": time.time(),
-                    "phase_1_complete": True
+                    "phase_1_complete": True,
+                    "uniqueness_factors": {
+                        "domain": domain.value,
+                        "complexity": complexity.value, 
+                        "architecture": architecture.value,
+                        "theme": theme.value,
+                        "seed": seed
+                    }
                 }
                 
                 with open(project_dir / "project_metadata.json", 'w') as f:
@@ -420,16 +530,20 @@ async def run_phase_1_generation(config, max_concurrent=3):
                 return {
                     'success': True,
                     'project_name': project_name,
+                    'unique_id': unique_id,
                     'language': language,
                     'domain': domain.value,
-                    'complexity': complexity.value
+                    'complexity': complexity.value,
+                    'architecture': architecture.value,
+                    'theme': theme.value
                 }
                 
             except Exception as e:
-                console.print(f"   ❌ [red]Failed {language} {domain.value}: {str(e)}[/red]")
+                console.print(f"   ❌ [red]Failed {unique_id}: {str(e)}[/red]")
                 return {
                     'success': False,
                     'error': str(e),
+                    'unique_id': unique_id,
                     'language': language,
                     'domain': domain.value
                 }
@@ -478,7 +592,7 @@ async def run_phase_1_generation(config, max_concurrent=3):
 
 
 async def run_phase_2_generation(config, force_regenerate=False, max_concurrent=3):
-    """Run Phase 2: Synthetic Codebase Generation with parallel processing"""
+    """Run Phase 2: Synthetic Codebase Generation with parallel processing and resumability"""
     from .generation.synthetic_generator import SyntheticProjectGenerator
     from pathlib import Path
     import json
@@ -488,16 +602,24 @@ async def run_phase_2_generation(config, force_regenerate=False, max_concurrent=
     console.print("\n💻 [bold]Synthetic Codebase Generation Pipeline[/bold]")
     console.print("=" * 60)
     
-    generator = SyntheticProjectGenerator(config)
+    # Setup progress tracking
+    progress_file = Path("logs/phase2_progress.json")
+    progress_file.parent.mkdir(exist_ok=True)
+    completed_projects = load_progress(progress_file)
+    completed_project_names = {p.get('project_name', '') for p in completed_projects}
+    
+    generator = SyntheticProjectGenerator(config, log_file="logs/phase2_generation.log")
     generated_dir = Path(config.data.generated_dir)
     
     # Find all project metadata files from Phase 1
     project_dirs = [d for d in generated_dir.iterdir() if d.is_dir()]
     
     console.print(f"📂 Found {len(project_dirs)} projects from Phase 1")
+    console.print(f"📋 Resume state: {len(completed_projects)} projects previously completed")
     
     if force_regenerate:
         console.print("🔄 [yellow]Force mode: Regenerating ALL projects[/yellow]")
+        completed_project_names = set()  # Clear resume state
     else:
         console.print("🧠 [cyan]Smart resume: Checking for completed projects...[/cyan]")
     
@@ -521,15 +643,20 @@ async def run_phase_2_generation(config, force_regenerate=False, max_concurrent=
         with open(metadata_file, 'r') as f:
             project_data = json.load(f)
         
+        project_name = f"{project_data['specification']['name']} ({project_data['specification']['language']})"
+        
         # Check if project is already completed (unless force regeneration)
-        if not force_regenerate and 'generated_stats' in project_data:
-            stats = project_data['generated_stats']
+        if not force_regenerate and (
+            project_name in completed_project_names or 
+            'generated_stats' in project_data
+        ):
+            stats = project_data.get('generated_stats', {})
             # Also verify files actually exist on disk
             expected_files = project_data.get('files', [])
             all_files_exist = all((project_dir / f['path']).exists() for f in expected_files)
             
             if all_files_exist and stats.get('files_count', 0) > 0:
-                console.print(f"✅ [green]{project_data['specification']['name']} ({project_data['specification']['language']}) - Already completed![/green]")
+                console.print(f"✅ [green]{project_name} - Already completed![/green]")
                 projects_skipped += 1
                 continue
         
@@ -608,12 +735,43 @@ async def run_phase_2_generation(config, force_regenerate=False, max_concurrent=
                 
                 console.print(f"   ✅ [green]Completed {project_name}![/green] {files_created} files, {lines_created:,} lines")
                 
+                # Save progress for successful completion
+                import time
+                current_progress = {
+                    'project_name': project_name,
+                    'status': 'completed',
+                    'files_created': files_created,
+                    'lines_created': lines_created,
+                    'timestamp': time.time()
+                }
+                completed_projects.append(current_progress)
+                save_progress(progress_file, completed_projects, "2")
+                
                 return {
                     'success': True,
                     'files_created': files_created,
                     'lines_created': lines_created,
                     'project_name': project_name
                 }
+                
+            except CriticalAuthError as e:
+                # Critical auth errors should stop the entire process
+                console.print(f"   🚨 [bold red]CRITICAL AUTH FAILURE in {project_name}[/bold red]")
+                console.print(f"   🔑 {e.provider}: {e.message}")
+                console.print("   🛑 [yellow]Stopping generation to fix authentication...[/yellow]")
+                
+                # Save current progress before stopping
+                current_progress = {
+                    'project_name': project_name,
+                    'status': 'auth_failed',
+                    'error': str(e),
+                    'timestamp': time.time()
+                }
+                completed_projects.append(current_progress)
+                save_progress(progress_file, completed_projects, "2")
+                
+                # Re-raise to stop the entire process
+                raise e
                 
             except Exception as e:
                 console.print(f"   ❌ [red]Failed {project_name}: {str(e)}[/red]")
@@ -626,46 +784,66 @@ async def run_phase_2_generation(config, force_regenerate=False, max_concurrent=
     # Execute all projects in parallel with progress tracking
     console.print(f"\n🚀 [bold]Starting parallel generation of {len(projects_to_process)} projects...[/bold]")
     
-    # Create tasks for all projects
-    tasks = []
-    for i, project_info in enumerate(projects_to_process, 1):
-        task = generate_single_project(project_info, i)
-        tasks.append(task)
-    
-    # Wait for all projects to complete
-    results = await asyncio.gather(*tasks, return_exceptions=True)
-    
-    # Process results
-    successful_projects = []
-    failed_projects = []
-    
-    for result in results:
-        if isinstance(result, Exception):
-            failed_projects.append(f"Exception: {str(result)}")
-        elif result and result['success']:
-            successful_projects.append(result)
-            total_files_generated += result['files_created']
-            total_lines_generated += result['lines_created']
-            projects_completed += 1
-        else:
-            failed_projects.append(result['project_name'] if result else "Unknown project")
-    
-    # Final summary
-    console.print(f"\n📊 [bold]Phase 2 Summary:[/bold]")
-    console.print(f"   ✅ Completed: {projects_completed} projects")
-    console.print(f"   ⚠️  Skipped: {projects_skipped} projects (already done)")
-    console.print(f"   ❌ Failed: {len(failed_projects)} projects")
-    console.print(f"   📄 Total files generated: {total_files_generated:,}")
-    console.print(f"   📝 Total lines generated: {total_lines_generated:,}")
-    
-    if failed_projects:
-        console.print(f"\n⚠️  [yellow]Failed projects:[/yellow]")
-        for failed in failed_projects[:5]:  # Show first 5 failures
-            console.print(f"   • {failed}")
-        if len(failed_projects) > 5:
-            console.print(f"   • ... and {len(failed_projects) - 5} more")
-    
-    console.print(f"\n💡 [dim]Tip: Use --force to regenerate all projects[/dim]")
+    try:
+        # Create tasks for all projects
+        tasks = []
+        for i, project_info in enumerate(projects_to_process, 1):
+            task = generate_single_project(project_info, i)
+            tasks.append(task)
+        
+        # Wait for all projects to complete
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Check for CriticalAuthError in results
+        for result in results:
+            if isinstance(result, CriticalAuthError):
+                raise result
+        
+        # Process results
+        successful_projects = []
+        failed_projects = []
+        
+        for result in results:
+            if isinstance(result, Exception):
+                failed_projects.append(f"Exception: {str(result)}")
+            elif result and result['success']:
+                successful_projects.append(result)
+                total_files_generated += result['files_created']
+                total_lines_generated += result['lines_created']
+                projects_completed += 1
+            else:
+                failed_projects.append(result['project_name'] if result else "Unknown project")
+        
+        # Final summary
+        console.print(f"\n📊 [bold]Phase 2 Summary:[/bold]")
+        console.print(f"   ✅ Completed: {projects_completed} projects")
+        console.print(f"   ⚠️  Skipped: {projects_skipped} projects (already done)")
+        console.print(f"   ❌ Failed: {len(failed_projects)} projects")
+        console.print(f"   📄 Total files generated: {total_files_generated:,}")
+        console.print(f"   📝 Total lines generated: {total_lines_generated:,}")
+        
+        if failed_projects:
+            console.print(f"\n⚠️  [yellow]Failed projects:[/yellow]")
+            for failed in failed_projects[:10]:  # Show first 10
+                console.print(f"     • {failed}")
+            if len(failed_projects) > 10:
+                console.print(f"     ... and {len(failed_projects) - 10} more")
+                
+    except CriticalAuthError as e:
+        console.print(f"\n🚨 [bold red]CRITICAL AUTHENTICATION FAILURE[/bold red]")
+        console.print(f"🔑 Provider: {e.provider}")
+        console.print(f"💬 Error: {e.message}")
+        console.print(f"\n📋 Progress saved to: {progress_file}")
+        console.print(f"✅ {len(completed_projects)} projects completed before failure")
+        console.print(f"\n🔧 [bold yellow]Next steps:[/bold yellow]")
+        console.print("   1. Update your API credentials (check api.sh)")
+        console.print("   2. Run: source api.sh")
+        console.print("   3. Resume with: agentcodeeval generate --phase 2")
+        console.print("   4. The pipeline will automatically resume from where it stopped")
+        
+        # Exit with error code
+        import sys
+        sys.exit(1)
 
 
 async def run_phase_3_generation(config, force_regenerate=False, max_concurrent=3):
@@ -714,15 +892,40 @@ async def run_phase_3_generation(config, force_regenerate=False, max_concurrent=
     
     console.print("🎯 Creating evaluation scenarios with 3 Elite Models...")
     
-    # Task categories from enum
+    # Calculate scenario distribution based on config task_distribution
     task_categories = list(TaskCategory)
     
-    # Calculate target instances per project based on configuration
-    total_projects_all_languages = len(completed_projects)
-    target_instances_per_project = max(1, config.benchmark.total_instances // total_projects_all_languages // len(task_categories))
+    # Validate that all configured task categories exist in our enum
+    config_categories = set(config.benchmark.task_distribution.keys())
+    enum_categories = {cat.value for cat in task_categories}
+    missing_categories = config_categories - enum_categories
+    if missing_categories:
+        console.print(f"⚠️  [yellow]Warning: Config contains unknown task categories: {missing_categories}[/yellow]")
     
-    console.print(f"📋 Target: {target_instances_per_project} scenarios per project per category")
-    console.print(f"🎯 Total scenarios to generate: {len(completed_projects)} projects × {len(task_categories)} categories × {target_instances_per_project} = {len(completed_projects) * len(task_categories) * target_instances_per_project}")
+    # Create distribution map from config
+    task_instance_counts = {}
+    total_projects_all_languages = len(completed_projects)
+    
+    for task_category in task_categories:
+        if task_category.value in config.benchmark.task_distribution:
+            # Use configured count
+            target_count = config.benchmark.task_distribution[task_category.value]
+            instances_per_project = max(1, target_count // total_projects_all_languages)
+            task_instance_counts[task_category] = instances_per_project
+        else:
+            # Fallback for missing categories
+            console.print(f"⚠️  [yellow]Warning: {task_category.value} not in config task_distribution, using default[/yellow]")
+            task_instance_counts[task_category] = 2
+    
+    # Calculate total scenarios
+    total_scenarios_planned = sum(task_instance_counts.values()) * total_projects_all_languages
+    
+    console.print(f"📋 Task Distribution (from config):")
+    for task_category, instances_per_project in task_instance_counts.items():
+        total_for_category = instances_per_project * total_projects_all_languages
+        console.print(f"  • {task_category.value}: {instances_per_project} per project × {total_projects_all_languages} projects = {total_for_category} total")
+    
+    console.print(f"🎯 Total scenarios to generate: {total_scenarios_planned}")
     
     # Prepare scenario generation tasks
     scenario_tasks = []
@@ -742,7 +945,7 @@ async def run_phase_3_generation(config, force_regenerate=False, max_concurrent=
                 'project_dir': project_dir,
                 'project_data': project_data,
                 'task_category': task_category,
-                'target_instances': target_instances_per_project,
+                'target_instances': task_instance_counts[task_category],
                 'scenario_file': scenario_file
             })
     

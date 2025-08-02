@@ -19,7 +19,7 @@
 \maketitle
 
 \begin{abstract}
-We propose AgentCodeEval, a comprehensive benchmark for evaluating long-context language models (LLMs) in software development agent scenarios. Unlike existing code evaluation benchmarks that focus on single-function completion or isolated code understanding, AgentCodeEval addresses the critical gap in evaluating LLMs' ability to perform complex, multi-file software development tasks that require understanding large codebases, managing dependencies, and implementing features across multiple sessions. This benchmark targets real-world software development workflows where agents must navigate complex file structures, understand inter-module dependencies, and maintain architectural consistency across large-scale codebases. With 12,000 evaluation instances, AgentCodeEval provides 5x more comprehensive coverage than the largest existing benchmark (SWE-Bench: 2,294 instances).
+We propose AgentCodeEval, a comprehensive benchmark for evaluating long-context language models (LLMs) in software development agent scenarios. Unlike existing code evaluation benchmarks that focus on single-function completion or isolated code understanding, AgentCodeEval addresses the critical gap in evaluating LLMs' ability to perform complex, multi-file software development tasks that require understanding large codebases, managing dependencies, and implementing features across multiple sessions. This benchmark targets real-world software development workflows where agents must navigate complex file structures, understand inter-module dependencies, and maintain architectural consistency across large-scale codebases. With 8,000 evaluation instances, AgentCodeEval provides 3.5x more comprehensive coverage than the largest existing benchmark (SWE-Bench: 2,294 instances).
 \end{abstract}
 
 \section{Introduction}
@@ -59,11 +59,11 @@ Despite the critical importance of AI-powered development tools, no existing ben
 \section{AgentCodeEval: Benchmark Design}
 
 \subsection{Core Concept}
-AgentCodeEval evaluates LLMs on realistic software development scenarios that span multiple files, require understanding of complex dependencies, and simulate multi-session development workflows. With 12,000 instances across 8 comprehensive task categories, AgentCodeEval provides 5x more extensive coverage than existing benchmarks.
+AgentCodeEval evaluates LLMs on realistic software development scenarios that span multiple files, require understanding of complex dependencies, and simulate multi-session development workflows. With 8,000 instances across 8 comprehensive task categories, AgentCodeEval provides 3.5x more extensive coverage than existing benchmarks.
 
 \subsection{Key Design Principles}
 \begin{enumerate}
-    \item \textbf{Unprecedented Scale}: 12,000 instances—5x larger than SWE-Bench (2,294)
+    \item \textbf{Unprecedented Scale}: 8,000 instances—3.5x larger than SWE-Bench (2,294)
     \item \textbf{Real-world Relevance}: Tasks derived from actual production codebases in The Stack v2
     \item \textbf{Multi-file Complexity}: Each task involves 15-200+ files with authentic dependencies
     \item \textbf{Long-context Requirement}: Tasks require understanding of 10K-200K+ tokens
@@ -85,7 +85,7 @@ AgentCodeEval consists of three integrated evaluation layers:
 
 AgentCodeEval comprises 8 comprehensive task categories, each designed to evaluate specific agent capabilities:
 
-\subsubsection{1. Architectural Understanding (1,500 instances)}
+\subsubsection{1. Architectural Understanding (1,000 instances)}
 Evaluates agents' ability to comprehend and work with large-scale software architecture:
 \begin{itemize}
     \item \textbf{Design pattern recognition}: Identify MVC, Observer, Factory patterns across 50+ files
@@ -94,7 +94,7 @@ Evaluates agents' ability to comprehend and work with large-scale software archi
     \item \textbf{Context}: 15K-80K tokens, real production codebases from The Stack v2
 \end{itemize}
 
-\subsubsection{2. Cross-file Refactoring (1,500 instances)}
+\subsubsection{2. Cross-file Refactoring (1,000 instances)}
 Tests systematic code restructuring while maintaining functionality:
 \begin{itemize}
     \item \textbf{Extract functionality}: Move shared code into new modules across 20+ files
@@ -104,7 +104,7 @@ Tests systematic code restructuring while maintaining functionality:
     \item \textbf{Context}: 20K-100K tokens, complex dependency chains
 \end{itemize}
 
-\subsubsection{3. Feature Implementation (1,800 instances)}
+\subsubsection{3. Feature Implementation (1,000 instances)}
 Evaluates adding new functionality to existing systems:
 \begin{itemize}
     \item \textbf{Authentication systems}: Implement OAuth/JWT across web application layers
@@ -114,7 +114,7 @@ Evaluates adding new functionality to existing systems:
     \item \textbf{Context}: 25K-150K tokens, full-stack development scenarios
 \end{itemize}
 
-\subsubsection{4. Bug Investigation (1,500 instances)}
+\subsubsection{4. Bug Investigation (1,000 instances)}
 Tests systematic debugging across complex codebases:
 \begin{itemize}
     \item \textbf{Error tracing}: Follow exception paths through multiple modules and call stacks
@@ -124,7 +124,7 @@ Tests systematic debugging across complex codebases:
     \item \textbf{Context}: 30K-120K tokens, real production bug scenarios
 \end{itemize}
 
-\subsubsection{5. Multi-session Development (1,200 instances)}
+\subsubsection{5. Multi-session Development (1,000 instances)}
 Novel evaluation of context persistence across development sessions:
 \begin{itemize}
     \item \textbf{Session continuity}: Maintain architectural decisions across 3-5 sessions
@@ -134,7 +134,7 @@ Novel evaluation of context persistence across development sessions:
     \item \textbf{Context}: 40K-200K tokens, extended development workflows
 \end{itemize}
 
-\subsubsection{6. Code Comprehension (1,500 instances)}
+\subsubsection{6. Code Comprehension (1,000 instances)}
 Tests deep understanding and explanation capabilities:
 \begin{itemize}
     \item \textbf{Algorithm explanation}: Describe complex algorithms and their purpose
@@ -144,7 +144,7 @@ Tests deep understanding and explanation capabilities:
     \item \textbf{Context}: 10K-80K tokens, focus on understanding over generation
 \end{itemize}
 
-\subsubsection{7. Integration Testing (1,300 instances)}
+\subsubsection{7. Integration Testing (1,000 instances)}
 Evaluates understanding of system integration and testing:
 \begin{itemize}
     \item \textbf{Component interaction testing}: Verify interfaces between modules
@@ -154,7 +154,7 @@ Evaluates understanding of system integration and testing:
     \item \textbf{Context}: 35K-100K tokens, system-level testing scenarios
 \end{itemize}
 
-\subsubsection{8. Security Analysis (1,200 instances)}
+\subsubsection{8. Security Analysis (1,000 instances)}
 Tests security-aware development practices:
 \begin{itemize}
     \item \textbf{Vulnerability detection}: Identify SQL injection, XSS, authentication flaws
@@ -169,7 +169,7 @@ Tests security-aware development practices:
 AgentCodeEval implements a sophisticated difficulty progression based on context length, architectural complexity, and information coverage:
 
 \begin{enumerate}
-    \item \textbf{Easy Level (3,200 instances)}
+    \item \textbf{Easy Level (2,000 instances)}
     \begin{itemize}
         \item \textbf{Context Length}: 10K-40K tokens (15-30 files)
         \item \textbf{Complexity}: Basic architectural patterns, straightforward dependencies
@@ -178,7 +178,7 @@ AgentCodeEval implements a sophisticated difficulty progression based on context
         \item \textbf{Session Count}: 1-2 sessions for multi-session tasks
     \end{itemize}
     
-    \item \textbf{Medium Level (4,500 instances)}
+    \item \textbf{Medium Level (4,000 instances)}
     \begin{itemize}
         \item \textbf{Context Length}: 40K-100K tokens (30-80 files)
         \item \textbf{Complexity}: Multiple architectural layers, moderate dependency chains
@@ -187,22 +187,14 @@ AgentCodeEval implements a sophisticated difficulty progression based on context
         \item \textbf{Session Count}: 2-4 sessions for multi-session tasks
     \end{itemize}
     
-    \item \textbf{Hard Level (3,600 instances)}
+    \item \textbf{Hard Level (2,000 instances)}
     \begin{itemize}
-        \item \textbf{Context Length}: 100K-200K tokens (80-200+ files)
+        \item \textbf{Context Length}: 100K-200K+ tokens (80-200+ files)
         \item \textbf{Complexity}: Complex microservice architectures, deep dependency networks
         \item \textbf{Tasks}: System-wide changes, architectural refactoring, complex integration scenarios
         \item \textbf{Information Coverage}: IC > 0.9 (very high context utilization)
         \item \textbf{Session Count}: 3-5 sessions for multi-session tasks
-    \end{itemize}
-    
-    \item \textbf{Expert Level (700 instances)}
-    \begin{itemize}
-        \item \textbf{Context Length}: 200K+ tokens (200+ files, full repository context)
-        \item \textbf{Complexity}: Enterprise-scale architectures, maximum complexity
-        \item \textbf{Tasks}: Full-system understanding, major architectural decisions
-        \item \textbf{Information Coverage}: IC > 0.95 (near-complete context utilization)
-        \item \textbf{Session Count}: 5+ sessions for extended development workflows
+        \item \textbf{Expert-Level Evaluation}: Includes enterprise-scale architectures and maximum complexity scenarios
     \end{itemize}
 \end{enumerate}
 
@@ -255,9 +247,95 @@ From The Stack v2's 3B+ files, repositories are selected based on:
     \item \textbf{Quality Metrics}: >100 stars, active development, clean commit history
     \item \textbf{Architectural Complexity}: Multiple modules, clear patterns, realistic dependencies
     \item \textbf{Size Range}: 50-500 files per repository (10K-200K tokens)
-    \item \textbf{Language Diversity}: Python, JavaScript, Java, C++, Go, TypeScript
+    \item \textbf{Language Diversity}: Python, JavaScript, Java, Go, Rust, TypeScript
     \item \textbf{Domain Coverage}: Web frameworks, ML libraries, system tools, enterprise applications
 \end{itemize}
+
+\subsection{Programming Language Selection Rationale}
+
+AgentCodeEval employs a **Top 10 Languages Strategy** (10 languages × 100 projects = 1,000 total projects) to maximize programming language diversity while maintaining substantial scale per language. Our selection combines global market rankings, agent development relevance, and enterprise adoption patterns based on 2025 data.
+
+\textbf{Selected Languages (10 languages, optimized for comprehensive coverage):}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{|l|c|c|l|}
+\hline
+\textbf{Language} & \textbf{TIOBE 2025} & \textbf{Trend} & \textbf{Agent Relevance} \\
+\hline
+Python & \#1 (23.88\%) & +8.72\% & AI/ML, automation, data science \\
+C++ & \#2 (11.37\%) & +0.84\% & Performance, games, embedded systems \\
+Java & \#3 (10.66\%) & +1.79\% & Enterprise, Android, backend services \\
+C & \#4 (9.84\%) & -1.14\% & Systems, OS development, embedded \\
+C\# & \#5 (4.12\%) & -3.41\% & Enterprise, Windows, .NET ecosystem \\
+JavaScript & \#6 (3.78\%) & +0.61\% & Web development, full-stack \\
+TypeScript & JS ecosystem & Growing & Enterprise web, type safety \\
+Go & \#8 (2.26\%) & +0.53\% & Cloud-native, microservices \\
+Rust & \#13 (1.47\%) & +0.42\% & Systems, security, memory safety \\
+PHP & \#14 (1.14\%) & -0.37\% & Web backends, legacy systems \\
+\hline
+\end{tabular}
+\caption{AgentCodeEval 10-Language Selection (2025 TIOBE Index + Enterprise Data)}
+\end{table}
+
+\textbf{Strategic Inclusion Justifications:}
+\begin{itemize}
+    \item \textbf{Top 6 Global Languages}: Python, C++, Java, C, C\#, JavaScript represent 74\% of global programming activity
+    \item \textbf{Enterprise Web Standard}: TypeScript adoption in 75\% of React projects, becoming enterprise JavaScript standard
+    \item \textbf{Cloud-Native Leader}: Go's dominance in microservices, container orchestration (Docker, Kubernetes)
+    \item \textbf{Security \& Performance}: Rust's growing adoption for memory-safe systems programming
+    \item \textbf{Legacy Web Systems}: PHP still powers 77\% of websites, critical for agent migration scenarios
+\end{itemize}
+
+\textbf{Coverage Analysis:}
+\begin{itemize}
+    \item \textbf{Systems Programming}: C, C++, Rust (low-level, performance-critical)
+    \item \textbf{Enterprise Development}: Java, C\#, TypeScript (large-scale applications)
+    \item \textbf{Web Development}: JavaScript, TypeScript, PHP (full-stack scenarios)
+    \item \textbf{AI/ML \& Data}: Python (machine learning, automation)
+    \item \textbf{Cloud \& Infrastructure}: Go, Rust (modern distributed systems)
+    \item \textbf{Mobile \& Gaming}: Java (Android), C++ (AAA games)
+\end{itemize}
+
+\textbf{Alternative Languages Considered:}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{|l|c|l|}
+\hline
+\textbf{Language} & \textbf{TIOBE 2025} & \textbf{Exclusion Rationale} \\
+\hline
+Swift & \#16 & iOS-specific, limited cross-platform agent scenarios \\
+Kotlin & \#17 & Android-specific, overlaps with Java coverage \\
+Ruby & \#19 & Declining usage, niche web development \\
+Dart & \#28 & Flutter-specific, limited enterprise adoption \\
+\hline
+\end{tabular}
+\caption{Languages Considered but Excluded}
+\end{table}
+
+\textbf{Optimized Scale Rationale:}
+The **10 × 100 approach** (1,000 total projects) provides:
+\begin{itemize}
+    \item \textbf{Comprehensive Language Coverage}: Represents 85\%+ of global programming activity
+    \item \textbf{Sufficient Sample Size}: 100 projects per language ensures statistical significance
+    \item \textbf{Practical Generation Scale}: Manageable for API costs while maintaining research validity
+    \item \textbf{Balanced Complexity}: Each language generates 800 scenarios (8 categories × 100 projects)
+\end{itemize}
+
+\subsubsection{Agent-Centric Selection Criteria}
+
+The final language selection prioritizes agent development realities over pure market rankings:
+
+\begin{itemize}
+    \item \textbf{Growth Trajectory}: All selected languages show positive or stable growth trends
+    \item \textbf{Agent Use Cases}: Coverage of web development, cloud infrastructure, AI/ML, and enterprise systems
+    \item \textbf{Modern Safety Features}: Emphasis on memory safety (Rust), type safety (TypeScript), and robust error handling
+    \item \textbf{Developer Productivity}: Rich ecosystems, strong tooling, and rapid development capabilities
+    \item \textbf{Industry Future**: Alignment with cloud-native, AI-first development paradigms
+\end{itemize}
+
+This selection ensures AgentCodeEval evaluates agent capabilities in the programming languages and paradigms they will most frequently encounter in real-world 2025+ development scenarios.
 
 \subsection{Target Repository Categories}
 \begin{table}[h]
@@ -266,24 +344,24 @@ From The Stack v2's 3B+ files, repositories are selected based on:
 \toprule
 Category & Examples & Instance Count \\
 \midrule
-ML/AI Frameworks & TensorFlow, PyTorch, scikit-learn & 2,400 \\
-Web Frameworks & React, Vue, Django, Flask & 2,400 \\
-System Tools & Docker, Kubernetes, Git & 1,800 \\
-Enterprise Apps & ERP systems, CMS platforms & 1,800 \\
-API Services & REST APIs, GraphQL services & 1,800 \\
-Database Systems & ORMs, migration tools & 1,200 \\
-Security Tools & Authentication, encryption & 1,200 \\
-DevOps Tools & CI/CD, monitoring & 600 \\
+AI/ML Frameworks & TensorFlow, PyTorch, scikit-learn (Python) & 2,400 \\
+Web Frameworks & React, Vue (JavaScript), Django, Flask (Python) & 2,400 \\
+Cloud Services & Docker, Kubernetes (Go), FastAPI (Python) & 1,800 \\
+Enterprise Apps & Spring Boot (Java), Enterprise systems & 1,800 \\
+API Services & REST APIs (Go, Java), GraphQL services & 1,800 \\
+System Tools & Rust-based tools, Go utilities & 1,200 \\
+Security Tools & Authentication (Rust, Go), encryption & 1,200 \\
+Modern Web Apps & TypeScript applications, Node.js services & 600 \\
 \bottomrule
 \end{tabular}
-\caption{Repository distribution for comprehensive domain coverage}
+\caption{Repository distribution optimized for agent-relevant domains with selected languages}
 \end{table}
 
 \section{Methodology}
 
 \subsection{Automated Generation Pipeline}
 
-AgentCodeEval employs a sophisticated 4-phase automated generation pipeline to create 12,000 high-quality evaluation instances:
+AgentCodeEval employs a sophisticated 4-phase automated generation pipeline to create 8,000 high-quality evaluation instances:
 
 \subsubsection{Phase 1: Repository Analysis and Selection}
 \begin{enumerate}
@@ -312,18 +390,142 @@ AgentCodeEval employs a sophisticated 4-phase automated generation pipeline to c
     \item \textbf{Context Length Distribution**: Ensure proper distribution across Easy/Medium/Hard/Expert levels
     \item \textbf{Quality Assurance Pipeline**: Automated validation of syntax, dependencies, and information coverage
     \item \textbf{Deduplication**: Remove near-duplicate instances using semantic similarity
-    \item \textbf{Output**: 12,000 unique, validated evaluation instances
+    \item \textbf{Output**: 8,000 unique, validated evaluation instances
 \end{enumerate}
 
-\subsubsection{Phase 4: Reference Solution and Evaluation Creation}
+\subsubsection{Phase 4: Automated Validation Framework}
 \begin{enumerate}
-    \item \textbf{Multi-LLM Solution Generation**: Use GPT-4o, Claude 3.5, and Gemini for diverse reference solutions
-    \item \textbf{Solution Validation Framework**: Automated testing of generated solutions for correctness
-    \item \textbf{Multiple Solution Variants**: 2-3 reference solutions per instance for comprehensive evaluation
-    \item \textbf{Evaluation Rubric Creation**: Detailed scoring criteria for each task category
-    \item \textbf{Human Quality Sampling**: Manual validation of 5% (600 instances) across all categories
-    \item \textbf{Output**: Validated benchmark with reference solutions and evaluation framework
+    \item \textbf{Test-Driven Validation**: Automated compilation, unit testing, and integration testing
+    \item \textbf{Code Quality Analysis**: Algorithmic complexity, maintainability, and security analysis
+    \item \textbf{Agent-Specific Metrics**: Implementation of ACS, DTA, MMR, CFRD, IDC, ICU calculations
+    \item \textbf{Objective Evaluation Framework**: Fully automated assessment without human bias
+    \item \textbf{Performance Benchmarking**: Cross-model comparison using standardized metrics
+    \item \textbf{Output**: Fully automated benchmark with objective evaluation framework
 \end{enumerate}
+
+\subsection{Project Uniqueness Guarantee System}
+
+AgentCodeEval implements a sophisticated \textbf{Multi-Layer Uniqueness System} to guarantee 100 completely unique projects per language across our 10 selected programming languages (1,000 total projects). This addresses the critical challenge of ensuring no repetitive or similar projects in the benchmark.
+
+\subsubsection{Uniqueness Challenge Analysis}
+With a target of 100 projects per language, traditional domain-complexity combinations (10 domains × 4 complexity levels = 40 combinations) would result in significant repetition. Our solution expands the uniqueness space through multiple orthogonal factors.
+
+\subsubsection{Multi-Factor Uniqueness Architecture}
+
+\textbf{Expanded Domain Categories (36 subcategories):}
+Instead of generic categories, we implement specific project subcategories:
+\begin{itemize}
+    \item \textbf{Web Applications (6)}: E-commerce, social platforms, CMS, dashboards, blogs, portfolios
+    \item \textbf{API Services (4)}: REST APIs, GraphQL services, microservices, API gateways
+    \item \textbf{Data Systems (5)}: Analytics platforms, ETL pipelines, data warehouses, streaming, data lakes
+    \item \textbf{ML/AI Systems (4)}: Training platforms, inference services, NLP systems, computer vision
+    \item \textbf{Desktop Applications (3)}: Productivity tools, media applications, development environments
+    \item \textbf{Mobile Applications (3)}: Social apps, utility apps, mobile games
+    \item \textbf{System Infrastructure (4)}: Monitoring, automation, networking, security tools
+    \item \textbf{Financial Technology (3)}: Payment systems, trading platforms, banking applications
+    \item \textbf{Gaming \& Simulation (2)}: Game engines, simulation frameworks
+    \item \textbf{Blockchain Systems (2)}: DeFi platforms, NFT marketplaces
+\end{itemize}
+
+\textbf{Architecture Pattern Variations (10 types):}
+\begin{itemize}
+    \item Monolithic, Microservices, Serverless, Event-Driven
+    \item Layered, Clean Architecture, Hexagonal, MVC, MVVM, Component-Based
+\end{itemize}
+
+\textbf{Project Theme Classifications (8 categories):}
+\begin{itemize}
+    \item Business, Education, Healthcare, Entertainment
+    \item Productivity, Social, Utility, Creative
+\end{itemize}
+
+\textbf{Deterministic Seed Generation:}
+Each project receives a unique deterministic seed based on:
+\texttt{hash(language-domain-complexity-architecture-theme-index) \% 1,000,000}
+
+\subsubsection{Mathematical Uniqueness Guarantee}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}lr@{}}
+\toprule
+\textbf{Uniqueness Factor} & \textbf{Count} \\
+\midrule
+Domain Subcategories & 36 \\
+Complexity Levels & 4 \\
+Architecture Patterns & 10 \\
+Project Themes & 8 \\
+Unique Seeds & ∞ \\
+\midrule
+\textbf{Total Combinations} & \textbf{11,520} \\
+\textbf{Target per Language} & \textbf{100} \\
+\textbf{Uniqueness Ratio} & \textbf{115.2×} \\
+\bottomrule
+\end{tabular}
+\caption{Project Uniqueness Factor Analysis}
+\end{table}
+
+\textbf{Calculation:}
+36 domains × 4 complexities × 10 architectures × 8 themes = 11,520 unique combinations
+
+\textbf{Result:} Each project gets a completely unique combination of factors, with 115× more combinations available than needed.
+
+\subsubsection{Uniqueness Implementation Strategy}
+
+\textbf{Distributed Selection Algorithm:}
+\begin{enumerate}
+    \item Cycle through domains systematically (domains[i \% 36])
+    \item Apply complexity distribution from configuration
+    \item Rotate architecture patterns (architectures[i \% 10])
+    \item Cycle through themes (themes[i \% 8])
+    \item Generate deterministic but unique seeds for LLM variation
+\end{enumerate}
+
+\textbf{LLM Prompt Specialization:}
+Each project receives tailored prompts emphasizing:
+\begin{itemize}
+    \item Domain-specific requirements and constraints
+    \item Architecture pattern implementation details
+    \item Theme-appropriate features and use cases
+    \item Complexity-appropriate scope and technical depth
+\end{itemize}
+
+\textbf{Verification and Quality Control:}
+\begin{itemize}
+    \item Automated uniqueness validation of project IDs
+    \item Cross-verification of factor combinations
+    \item Deterministic reproducibility through seed management
+    \item Quality assurance of generated project specifications
+\end{itemize}
+
+\subsubsection{Benefits of Multi-Layer Uniqueness}
+
+\begin{enumerate}
+    \item \textbf{Complete Elimination of Repetition}: Mathematical guarantee of unique projects
+    \item \textbf{Realistic Diversity}: Each project addresses distinct real-world scenarios
+    \item \textbf{Comprehensive Coverage}: Spans entire spectrum of software development domains
+    \item \textbf{Deterministic Generation}: Same configuration always produces identical benchmark
+    \item \textbf{Scalable Architecture}: Can support 1,000+ projects per language if needed
+    \item \textbf{LLM Variation Control}: Seeds ensure different implementations for same factor combinations
+\end{enumerate}
+
+\subsubsection{Sample Unique Project Examples}
+
+\textbf{Python Projects:}
+\begin{itemize}
+    \item \texttt{python\_web\_ecommerce\_hard\_001}: Healthcare e-commerce platform with microservices architecture
+    \item \texttt{python\_api\_rest\_medium\_002}: Education REST API with clean architecture pattern
+    \item \texttt{python\_ml\_nlp\_expert\_003}: Business NLP platform using event-driven design
+    \item \texttt{python\_data\_analytics\_easy\_004}: Social analytics dashboard with MVC architecture
+\end{itemize}
+
+\textbf{JavaScript Projects:}
+\begin{itemize}
+    \item \texttt{javascript\_web\_social\_medium\_001}: Entertainment social platform with component-based architecture
+    \item \texttt{javascript\_mobile\_utility\_hard\_002}: Productivity mobile app using serverless architecture
+\end{itemize}
+
+This uniqueness system ensures that AgentCodeEval provides genuinely diverse evaluation scenarios, eliminating concerns about repetitive or similar projects across the 1,000-project benchmark.
 
 \subsection{Novel Agent-Specific Evaluation Metrics}
 
@@ -397,10 +599,10 @@ Overall agent capability combining all metrics:
     \item \textbf{Interpretation**: >4.0 (Excellent), 3.0-4.0 (Good), 2.0-3.0 (Fair), <2.0 (Poor)
 \end{itemize}
 
-\section{Achieving 12,000 Instance Scale}
+\section{Achieving 8,000 Instance Scale}
 
 \subsection{Instance Distribution Strategy}
-AgentCodeEval's 12,000 instances are strategically distributed to ensure comprehensive coverage:
+AgentCodeEval's 8,000 instances are strategically distributed to ensure comprehensive coverage:
 
 \begin{table}[h]
 \centering
@@ -408,16 +610,16 @@ AgentCodeEval's 12,000 instances are strategically distributed to ensure compreh
 \toprule
 Task Category & Easy & Medium & Hard & Total \\
 \midrule
-Architectural Understanding & 400 & 600 & 500 & 1,500 \\
-Cross-file Refactoring & 400 & 600 & 500 & 1,500 \\
-Feature Implementation & 500 & 700 & 600 & 1,800 \\
-Bug Investigation & 400 & 600 & 500 & 1,500 \\
-Multi-session Development & 300 & 500 & 400 & 1,200 \\
-Code Comprehension & 500 & 600 & 400 & 1,500 \\
-Integration Testing & 400 & 500 & 400 & 1,300 \\
-Security Analysis & 400 & 500 & 300 & 1,200 \\
+Architectural Understanding & 250 & 500 & 250 & 1,000 \\
+Cross-file Refactoring & 250 & 500 & 250 & 1,000 \\
+Feature Implementation & 250 & 500 & 250 & 1,000 \\
+Bug Investigation & 250 & 500 & 250 & 1,000 \\
+Multi-session Development & 250 & 500 & 250 & 1,000 \\
+Code Comprehension & 250 & 500 & 250 & 1,000 \\
+Integration Testing & 250 & 500 & 250 & 1,000 \\
+Security Analysis & 250 & 500 & 250 & 1,000 \\
 \midrule
-\textbf{Total} & \textbf{3,200} & \textbf{4,500} & \textbf{3,600} & \textbf{12,000} \\
+\textbf{Total} & \textbf{2,000} & \textbf{4,000} & \textbf{2,000} & \textbf{8,000} \\
 \bottomrule
 \end{tabular}
 \caption{AgentCodeEval instance distribution across categories and difficulty levels}
@@ -425,10 +627,10 @@ Security Analysis & 400 & 500 & 300 & 1,200 \\
 
 \subsection{Context Length Distribution}
 \begin{itemize}
-    \item \textbf{Short Context (10K-40K tokens)}: 3,200 instances (Easy tasks)
-    \item \textbf{Medium Context (40K-100K tokens)}: 4,500 instances (Medium tasks)
-    \item \textbf{Long Context (100K-200K tokens)}: 3,600 instances (Hard tasks)
-    \item \textbf{Ultra-Long Context (200K+ tokens)}: 700 instances (Expert-level evaluation)
+    \item \textbf{Short Context (10K-40K tokens)}: 2,000 instances (Easy tasks)
+    \item \textbf{Medium Context (40K-100K tokens)}: 4,000 instances (Medium tasks)
+    \item \textbf{Long Context (100K-200K tokens)}: 2,000 instances (Hard tasks)
+    \item \textbf{Ultra-Long Context (200K+ tokens)}: Expert-level evaluation integrated across categories
 \end{itemize}
 
 \subsection{Scalability Advantages}
@@ -438,25 +640,25 @@ Our scale is achievable through automated generation using The Stack v2:
 \begin{itemize}
     \item \textbf{Repository Pool}: 50,000+ high-quality repositories
     \item \textbf{Synthetic Scenario Generation}: LLM-generated realistic development scenarios
-    \item \textbf{Template-based Scaling}: 8 task categories × 15 scenario templates = 120 base patterns
-    \item \textbf{Variation Generation}: 100 variations per base pattern = 12,000 instances
+    \item \textbf{Template-based Scaling}: 8 task categories × 10 templates = 80 base patterns
+    \item \textbf{Variation Generation}: 100 variations per base pattern = 8,000 instances
 \end{itemize}
 
 \subsubsection{Quality Control at Scale}
 \begin{itemize}
     \item \textbf{Automated Validation}: Tree-sitter parsing ensures syntactic correctness
     \item \textbf{Complexity Verification}: Information Coverage (IC) > 0.7 for all instances
-    \item \textbf{Human Sampling}: Manual validation of 5\% (600 instances) across all categories
+    \item \textbf{Algorithmic Validation}: Comprehensive automated quality assurance using 6 novel metrics
     \item \textbf{Difficulty Calibration}: Progressive complexity scaling within categories
 \end{itemize}
 
 \subsubsection{Resource Efficiency}
-Despite 12,000 instances, resource requirements remain manageable:
+Despite 8,000 instances, resource requirements remain manageable:
 \begin{itemize}
-    \item \textbf{Generation Cost}: \$3,000 in API calls (Claude/GPT-4 for reference solutions)
-    \item \textbf{Storage Requirements}: 50GB compressed benchmark data
-    \item \textbf{Evaluation Time}: 200 hours distributed across multiple API keys
-    \item \textbf{No Human Annotation}: Fully automated generation and validation
+    \item \textbf{Generation Cost}: \$1,500 in API calls for synthetic project and scenario generation
+    \item \textbf{Storage Requirements}: 300GB compressed benchmark data
+    \item \textbf{Evaluation Time}: Fully automated evaluation with no manual intervention
+    \item \textbf{No Human Annotation}: Fully automated generation and validation - eliminates human bias and subjectivity
 \end{itemize}
 
 \section{Implementation Plan}
@@ -488,23 +690,23 @@ Despite 12,000 instances, resource requirements remain manageable:
     \item \textbf{Quality Assurance Pipeline**: Syntax validation, dependency checking, IC verification
     \item \textbf{Deduplication System**: Semantic similarity-based duplicate removal
     \item \textbf{Distribution Validation**: Ensure proper Easy/Medium/Hard/Expert distribution
-    \item \textbf{Deliverable**: 12,000 unique, validated evaluation instances
+    \item \textbf{Deliverable**: 8,000 unique, validated evaluation instances
 \end{itemize}
 
-\subsection{Phase 4: Evaluation Framework and Model Assessment (Weeks 7-8)}
+\subsection{Phase 4: Automated Validation Framework (Weeks 7-8)}
 \begin{itemize}
-    \item \textbf{Agent-Specific Metrics**: Implement ACS, DTA, MMR, CFRD, IDC, ICU metrics
-    \item \textbf{Reference Solution Generation**: Multi-LLM approach for 2-3 solutions per instance
-    \item \textbf{Evaluation Infrastructure**: Extend LightEval for agent-specific evaluation
-    \item \textbf{Model Evaluation Campaign**: Assess 16-20 models (commercial + open-source)
-    \item \textbf{Statistical Analysis Framework**: Performance analysis across multiple dimensions
-    \item \textbf{Deliverable**: Complete benchmark with evaluation results for 16-20 models
+    \item \textbf{Test-Driven Validation**: Automated compilation, unit testing, and integration testing
+    \item \textbf{Code Quality Analysis**: Algorithmic complexity, maintainability, and security analysis
+    \item \textbf{Agent-Specific Metrics**: Implementation of ACS, DTA, MMR, CFRD, IDC, ICU calculations
+    \item \textbf{Objective Evaluation Framework**: Fully automated assessment without human bias
+    \item \textbf{Performance Benchmarking**: Cross-model comparison using standardized metrics
+    \item \textbf{Output**: Fully automated benchmark with objective evaluation framework
 \end{itemize}
 
 \subsection{Phase 5: Validation, Documentation and Release (Weeks 9-10)}
 \begin{itemize}
-    \item \textbf{Human Validation Study**: Manual validation of 5% (600 instances) across categories
-    \item \textbf{Benchmark Reliability Analysis**: Inter-rater agreement, statistical significance testing
+    \item \textbf{Automated Validation Framework**: Comprehensive testing using 6 algorithmic metrics across all instances
+    \item \textbf{Benchmark Reliability Analysis**: Statistical consistency testing, metric validation
     \item \textbf{Comprehensive Documentation**: Technical documentation, usage guides, evaluation protocols
     \item \textbf{Research Paper Preparation**: Write and submit to top-tier venue (ICLR/NeurIPS/ICML)
     \item \textbf{Public Release**: Open-source benchmark, leaderboard, and evaluation tools
@@ -513,8 +715,8 @@ Despite 12,000 instances, resource requirements remain manageable:
 
 \subsection{Success Metrics and Milestones}
 \begin{itemize}
-    \item \textbf{Scale Achievement**: 12,000 instances (5x larger than SWE-Bench)
-    \item \textbf{Quality Validation**: IC > 0.7 for all instances, 95\% human validation agreement
+    \item \textbf{Scale Achievement**: 8,000 instances (3.5x larger than SWE-Bench)
+    \item \textbf{Quality Validation**: IC > 0.7 for all instances, comprehensive automated metric validation
     \item \textbf{Model Discrimination**: Clear performance differences across difficulty levels
     \item \textbf{Statistical Significance**: Robust performance differences between model categories
     \item \textbf{Community Adoption**: >50 model submissions within 6 months of release
@@ -524,7 +726,7 @@ Despite 12,000 instances, resource requirements remain manageable:
 
 \subsection{Primary Research Contributions}
 \begin{enumerate}
-    \item \textbf{Unprecedented Scale Benchmark}: First 12,000-instance benchmark for software development agents—5x larger than existing code benchmarks
+    \item \textbf{Unprecedented Scale Benchmark}: First 8,000-instance benchmark for software development agents—3.5x larger than existing code benchmarks
     \item \textbf{Novel Agent-Specific Evaluation}: Introduction of 6 new metrics (ACS, DTA, MMR, CFRD, IDC, ICU) specifically designed for development agents
     \item \textbf{Multi-Session Evaluation Paradigm}: First benchmark to evaluate context persistence and incremental development across multiple sessions
     \item \textbf{Long-Context Code Integration**: Comprehensive evaluation of 10K-200K token codebases with high information coverage (IC > 0.7)
@@ -536,7 +738,7 @@ Despite 12,000 instances, resource requirements remain manageable:
 \begin{enumerate}
     \item \textbf{Information Coverage for Code**: Extension of ETHIC methodology to software development with distributed dependencies
     \item \textbf{Production Codebase Integration**: Utilization of The Stack v2's 3B+ files for authentic development scenarios
-    \item \textbf{Multi-LLM Reference Generation**: Robust evaluation using diverse reference solutions from multiple state-of-the-art models
+    \item \textbf{Automated Validation Framework**: Objective evaluation using algorithmic metrics and test-driven validation
     \item \textbf{Progressive Complexity Scaling**: Sophisticated difficulty progression from 10K to 200K+ tokens with calibrated complexity
     \item \textbf{Agent Workflow Simulation**: Realistic multi-step development processes spanning architecture, implementation, debugging, and maintenance
 \end{enumerate}
@@ -574,9 +776,9 @@ Despite 12,000 instances, resource requirements remain manageable:
 \subsection{Computational Resources}
 \begin{itemize}
     \item Standard server with 64GB+ RAM (no GPU required for analysis)
-    \item 500GB+ storage for datasets and 12,000 generated tasks
-    \item API access to Claude/GPT-4/Gemini for reference generation
-    \item Distributed API key management for parallel generation (estimated \$3,000 total cost)
+    \item 300GB+ storage for datasets and 8,000 generated tasks
+    \item API access to Claude/GPT-4/Gemini for synthetic generation
+    \item Distributed API key management for parallel generation (estimated \$1,500 total cost)
 \end{itemize}
 
 \subsection{No Requirements}
@@ -610,15 +812,15 @@ SWE-Bench & 2,294 & Repository-level \\
 L-Eval & 2,000+ & 3K-200K tokens \\
 ETHIC & 1,986 & High coverage \\
 AgentRewardBench & 1,302 & Web trajectories \\
-\textbf{AgentCodeEval} & \textbf{12,000} & \textbf{10K-200K tokens} \\
+\textbf{AgentCodeEval} & \textbf{8,000} & \textbf{10K-200K tokens} \\
 \bottomrule
 \end{tabular}
-\caption{Benchmark scale comparison - AgentCodeEval provides 5x more instances than the largest existing benchmark}
+\caption{Benchmark scale comparison - AgentCodeEval provides 3.5x more instances than the largest existing benchmark}
 \end{table}
 
 \subsection{Key Deliverables}
 \begin{enumerate}
-    \item AgentCodeEval benchmark dataset (12,000 instances)
+    \item AgentCodeEval benchmark dataset (8,000 instances)
     \item Automated evaluation framework and metrics
     \item Baseline performance analysis of major LLMs
     \item Research paper documenting methodology and results
@@ -627,9 +829,9 @@ AgentRewardBench & 1,302 & Web trajectories \\
 
 \section{Conclusion}
 
-AgentCodeEval addresses a critical gap in long-context LLM evaluation by focusing on realistic software development agent tasks. With 12,000 instances—5x larger than the current largest benchmark—AgentCodeEval provides unprecedented comprehensive coverage of agent-based software development scenarios. By leveraging existing high-quality code datasets and automated analysis tools, we can create this large-scale benchmark without requiring extensive human annotation or GPU resources.
+AgentCodeEval addresses a critical gap in long-context LLM evaluation by focusing on realistic software development agent tasks. With 8,000 instances—3.5x larger than the current largest benchmark—AgentCodeEval provides unprecedented comprehensive coverage of agent-based software development scenarios. By leveraging existing high-quality code datasets and automated analysis tools, we can create this large-scale benchmark without requiring extensive human annotation or GPU resources.
 
-The proposed approach is both novel and practical, offering a scalable methodology for generating realistic evaluation scenarios while maintaining rigorous evaluation standards. The 12,000-instance scale enables statistically significant analysis across multiple dimensions: context length, task complexity, programming languages, and architectural patterns. AgentCodeEval has the potential to become the definitive standard benchmark in the field, establishing new baselines for long-context software development agent evaluation.
+The proposed approach is both novel and practical, offering a scalable methodology for generating realistic evaluation scenarios while maintaining rigorous evaluation standards. The 8,000-instance scale enables statistically significant analysis across multiple dimensions: context length, task complexity, programming languages, and architectural patterns. AgentCodeEval has the potential to become the definitive standard benchmark in the field, establishing new baselines for long-context software development agent evaluation.
 
 \section{AgentCodeEval vs. Existing Benchmarks: Key Differentiators}
 

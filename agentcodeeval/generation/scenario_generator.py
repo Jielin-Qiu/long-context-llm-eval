@@ -134,6 +134,19 @@ class ScenarioGenerator:
         # Determine difficulty based on context length and complexity
         difficulty = self._determine_difficulty(context_length, project_spec.get('complexity', 'medium'))
         
+        # Calculate information coverage
+        information_coverage = self._calculate_information_coverage(context_files, project_files)
+        
+        # Validate information coverage against config requirements
+        min_coverage = self.config.benchmark.min_information_coverage
+        target_coverage = self.config.benchmark.target_information_coverage.get(difficulty.value.lower(), min_coverage)
+        
+        if information_coverage < min_coverage:
+            logger.warning(
+                f"⚠️  Scenario {scenario_id} has low information coverage "
+                f"({information_coverage:.2f} < {min_coverage:.2f})"
+            )
+        
         # Generate scenario using LLM
         scenario_data = await self._generate_scenario_content(
             task_category=task_category,
@@ -160,6 +173,8 @@ class ScenarioGenerator:
                 "project_domain": project_spec.get('domain'),
                 "project_features": project_spec.get('features', []),
                 "files_count": len(context_files),
+                "information_coverage": information_coverage,
+                "target_coverage": target_coverage,
                 "generation_timestamp": self._get_timestamp()
             }
         }
@@ -237,6 +252,26 @@ class ScenarioGenerator:
         # Take the most complex files up to target count
         selected_count = min(target_count, len(sorted_files))
         return dict(sorted_files[:selected_count])
+    
+    def _calculate_information_coverage(self, context_files: Dict[str, str], all_project_files: Dict[str, str]) -> float:
+        """Calculate information coverage ratio (context size / total project size)"""
+        if not all_project_files:
+            return 0.0
+        
+        # Calculate total project size (characters)
+        total_project_size = sum(len(content) for content in all_project_files.values())
+        
+        # Calculate context size (characters)
+        context_size = sum(len(content) for content in context_files.values())
+        
+        if total_project_size == 0:
+            return 0.0
+        
+        # Information coverage as ratio of context to total project
+        coverage = context_size / total_project_size
+        
+        # Cap at 1.0 (100% coverage)
+        return min(coverage, 1.0)
     
     def _determine_difficulty(self, context_length: int, project_complexity: str) -> DifficultyLevel:
         """Determine difficulty level based on context and project complexity"""

@@ -17,9 +17,9 @@ class APIConfig:
     google_api_key: Optional[str] = None
     huggingface_token: Optional[str] = None
     
-    # Rate limiting
-    max_requests_per_minute: int = 60
-    max_concurrent_requests: int = 10
+    # Rate limiting settings 
+    max_requests_per_minute: int = 600
+    max_concurrent_requests: int = 60
     
     # Model configurations
     # 🏆 3 Elite Models Ready for AgentCodeEval:
@@ -34,24 +34,23 @@ class DataConfig:
     # Local storage
     output_dir: str = "./data/output"
     generated_dir: str = "./data/generated"
-    templates_dir: str = "./data/templates"
     
     # Synthetic generation settings
     supported_languages: List[str] = field(default_factory=lambda: [
-        "python", "javascript", "typescript", "java", "cpp", "go"
+        "python", "cpp", "java", "c", "csharp", "javascript", "typescript", "go", "rust", "php"
     ])
     
     # Project generation criteria
-    min_files_per_project: int = 5
+    min_files_per_project: int = 10  # Fixed: was 5, should match config.yaml
     max_files_per_project: int = 100
-    projects_per_language: int = 200  # For 12,000 total instances
+    projects_per_language: int = 100  # OPTIMAL: 10 languages × 100 = 1,000 total projects
     
     # Complexity levels for synthetic projects
     complexity_distribution: Dict[str, float] = field(default_factory=lambda: {
         "easy": 0.25,      # 25% easy projects
-        "medium": 0.40,    # 40% medium projects  
+        "medium": 0.25,    # 25% medium projects  
         "hard": 0.25,      # 25% hard projects
-        "expert": 0.10     # 10% expert projects
+        "expert": 0.25     # 25% expert projects
     })
     
     # Generation quality controls
@@ -64,34 +63,34 @@ class DataConfig:
 class BenchmarkConfig:
     """Configuration for benchmark generation"""
     # Scale parameters
-    total_instances: int = 12000
+    total_instances: int = 8000  # OPTIMIZED: 10 languages × 100 projects × 8 categories
     
     # Task category distribution
     task_distribution: Dict[str, int] = field(default_factory=lambda: {
-        "architectural_understanding": 1500,
-        "cross_file_refactoring": 1500, 
-        "feature_implementation": 1900,
-        "bug_investigation": 1600,
-        "multi_session_development": 1200,
-        "code_comprehension": 1600,
-        "integration_testing": 1400,
-        "security_analysis": 1300
+        "architectural_understanding": 1000,
+        "cross_file_refactoring": 1000, 
+        "feature_implementation": 1000,
+        "bug_investigation": 1000,
+        "multi_session_development": 1000,
+        "code_comprehension": 1000,
+        "integration_testing": 1000,
+        "security_analysis": 1000
     })
     
     # Difficulty distribution
     difficulty_distribution: Dict[str, int] = field(default_factory=lambda: {
-        "easy": 3200,    # 10K-40K tokens
-        "medium": 4500,  # 40K-100K tokens  
-        "hard": 3600,    # 100K-200K tokens
-        "expert": 700    # 200K+ tokens
+        "easy": 2000,    # 10K-100K tokens
+        "medium": 2000,  # 100K-200K tokens  
+        "hard": 2000,    # 200K-500K tokens
+        "expert": 2000   # 500K-1M tokens
     })
     
     # Context length ranges
     context_ranges: Dict[str, tuple] = field(default_factory=lambda: {
-        "easy": (10000, 40000),
-        "medium": (40000, 100000),
-        "hard": (100000, 200000), 
-        "expert": (200000, 500000)
+        "easy": (10000, 100000),
+        "medium": (100000, 200000),
+        "hard": (200000, 500000), 
+        "expert": (500000, 1000000)
     })
     
     # Information coverage requirements
@@ -127,12 +126,8 @@ class EvaluationConfig:
     })
     
     # Evaluation timeouts (seconds)
-    task_timeout: int = 300
-    session_timeout: int = 1800
-    
-    # Validation settings
-    human_validation_ratio: float = 0.05  # 5% manual validation
-    inter_rater_agreement_threshold: float = 0.8
+    task_timeout: int = 1800
+    session_timeout: int = 3600
 
 
 class Config:
@@ -217,7 +212,6 @@ class Config:
             'data': {
                 'output_dir': self.data.output_dir,
                 'generated_dir': self.data.generated_dir,
-                'templates_dir': self.data.templates_dir,
                 'supported_languages': self.data.supported_languages,
                 'min_files_per_project': self.data.min_files_per_project,
                 'max_files_per_project': self.data.max_files_per_project,
@@ -240,8 +234,6 @@ class Config:
                 'score_thresholds': self.evaluation.score_thresholds,
                 'task_timeout': self.evaluation.task_timeout,
                 'session_timeout': self.evaluation.session_timeout,
-                'human_validation_ratio': self.evaluation.human_validation_ratio,
-                'inter_rater_agreement_threshold': self.evaluation.inter_rater_agreement_threshold,
             }
         }
         
@@ -329,8 +321,7 @@ Context Ranges:
 
 Data Sources:
 - Languages: {', '.join(self.data.supported_languages)}
-- Min stars: {self.data.min_stars}
-- File range: {self.data.min_files} - {self.data.max_files}
+- Files per project: {self.data.min_files_per_project} - {self.data.max_files_per_project}
 
 API Configuration:
 - OpenAI: {'✓' if self.api.openai_api_key else '✗'}

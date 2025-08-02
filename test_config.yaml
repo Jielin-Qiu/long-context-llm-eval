@@ -18,24 +18,27 @@ api:
   default_model_google: "gemini-2.5-pro"                      # ✅ Elite: Gemini 2.5 Pro (latest)
 
 data:
-  # Local storage directories
+  # Local storage directories  
   output_dir: "./data/output"
   generated_dir: "./data/generated"
-  templates_dir: "./data/templates"
   
   # Synthetic generation settings
   supported_languages:
-    - python
-    - javascript
-    - typescript
-    - java
-    - cpp
-    - go
+    - python      # #1: AI/ML dominance (23.88%, +8.72% growth)
+    - cpp         # #2: High-performance, games, systems (11.37%, +0.84% growth)  
+    - java        # #3: Enterprise, Android (10.66%, +1.79% growth)
+    - c           # #4: Systems programming (9.84%, declining but essential)
+    - csharp      # #5: Enterprise, Windows (.NET) (4.12%, Microsoft ecosystem)
+    - javascript  # #6: Web standard, frontend/backend (3.78%, +0.61% growth)
+    - typescript  # JS ecosystem: Enterprise web, type safety (75% of React projects)
+    - go          # #8: Cloud-native, microservices (2.26%, +0.53% growth)
+    - rust        # #13: Systems, security, performance (1.47%, +0.42% growth)
+    - php         # #14: Web development, still widely used (1.14%, legacy but prevalent)
   
   # Project generation criteria (TESTING VALUES)
-  min_files_per_project: 5
-  max_files_per_project: 20  # Smaller for testing
-  projects_per_language: 1   # Just 1 project per language for testing
+  min_files_per_project: 3
+  max_files_per_project: 15
+  projects_per_language: 1  # TESTING: 10 languages × 1 = 10 total projects
   
   # Complexity levels for synthetic projects
   complexity_distribution:
@@ -51,25 +54,25 @@ data:
 
 benchmark:
   # Scale parameters (TESTING VALUES)
-  total_instances: 16  # Fast testing: 1 project × 8 categories × 2 = 16 scenarios
+  total_instances: 80  # 10 projects × 8 categories = 80 evaluation scenarios
   
-  # Task category distribution (must sum to total_instances)
+  # Task category distribution (must sum to total_instances) 
   task_distribution:
-    architectural_understanding: 2   # 2 scenarios per category for fast testing
-    cross_file_refactoring: 2
-    feature_implementation: 2
-    bug_investigation: 2
-    multi_session_development: 2
-    code_comprehension: 2
-    integration_testing: 2
-    security_analysis: 2
+    architectural_understanding: 10     # 10 languages × 1 project = 10 per category
+    cross_file_refactoring: 10
+    feature_implementation: 10
+    bug_investigation: 10
+    multi_session_development: 10
+    code_comprehension: 10
+    integration_testing: 10
+    security_analysis: 10
   
   # Difficulty distribution (must sum to total_instances)
   difficulty_distribution:
-    easy: 8         # 50% easy (8/16)
-    medium: 5       # 31% medium (5/16)
-    hard: 2         # 13% hard (2/16)
-    expert: 1       # 6% expert (1/16)
+    easy: 20      # 80 scenarios ÷ 4 difficulty levels = 20 each
+    medium: 20
+    hard: 20 
+    expert: 20
   
   # Context length ranges (min_tokens, max_tokens)
   context_ranges:
@@ -112,10 +115,6 @@ evaluation:
       min: 0.0
       max: 2.0
   
-  # Timeout settings (seconds) - Shorter for testing
+  # Timeout settings (seconds) - PRODUCTION TIMEOUTS
   task_timeout: 180      # 3 minutes per task (shorter for testing)
-  session_timeout: 900   # 15 minutes per session (shorter for testing)
-  
-  # Validation settings
-  human_validation_ratio: 0.05  # 5% manual validation
-  inter_rater_agreement_threshold: 0.8 
+  session_timeout: 900   # 15 minutes per session (shorter for testing) 

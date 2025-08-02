@@ -9,87 +9,121 @@ in software development agent scenarios.
 import asyncio
 import json
 import logging
-import random
-import time
-from typing import Dict, List, Optional, Any, Tuple
+import os
+from datetime import datetime
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 from dataclasses import dataclass, asdict
 from enum import Enum
+import random
+
 import openai
-import anthropic
-import google.generativeai as genai
 import boto3
-import json
+import google.generativeai as genai
+from rich.console import Console
+from rich.progress import Progress, TaskID
 
 from ..core.config import Config
+from ..core.task import TaskCategory, DifficultyLevel
+from ..utils.rate_limiter import APIRateLimitManager
 
+
+# Set up logging
 logger = logging.getLogger(__name__)
+
+def setup_generation_logging(log_file: str = None) -> logging.Logger:
+    """Setup structured logging for generation process"""
+    if log_file is None:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        log_file = f"logs/generation_{timestamp}.log"
+    
+    # Create logs directory if it doesn't exist
+    log_path = Path(log_file)
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    # Setup file handler
+    file_handler = logging.FileHandler(log_path, mode='a', encoding='utf-8')
+    file_handler.setLevel(logging.INFO)
+    
+    # Setup console handler (for terminal output)
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    
+    # Create formatter
+    formatter = logging.Formatter(
+        '%(asctime)s | %(levelname)-8s | %(name)s | %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    file_handler.setFormatter(formatter)
+    console_handler.setFormatter(formatter)
+    
+    # Setup logger
+    gen_logger = logging.getLogger('agentcodeeval.generation')
+    gen_logger.setLevel(logging.INFO)
+    gen_logger.addHandler(file_handler)
+    gen_logger.addHandler(console_handler)
+    
+    return gen_logger
 
 
 class APIError(Exception):
     """Custom exception for API errors with specific provider info"""
-    def __init__(self, provider: str, error_type: str, message: str, original_error: Exception = None):
+    def __init__(self, provider: str, error_type: str, message: str, original_error: Exception = None, should_retry: bool = True):
         self.provider = provider
         self.error_type = error_type
         self.message = message
         self.original_error = original_error
+        self.should_retry = should_retry
         super().__init__(f"{provider} {error_type}: {message}")
 
 
+class CriticalAuthError(Exception):
+    """Critical authentication error that should stop the entire process"""
+    def __init__(self, provider: str, message: str):
+        self.provider = provider
+        self.message = message
+        super().__init__(f"🚨 CRITICAL AUTH FAILURE - {provider}: {message}")
+
+
 async def retry_with_backoff(func, max_retries: int = 3, base_delay: float = 1.0, max_delay: float = 60.0, provider: str = "Unknown"):
-    """
-    Retry function with exponential backoff for API calls
-    
-    Args:
-        func: Async function to retry
-        max_retries: Maximum number of retry attempts
-        base_delay: Initial delay in seconds
-        max_delay: Maximum delay in seconds
-        provider: API provider name for error reporting
-    """
-    last_exception = None
-    
-    for attempt in range(max_retries + 1):
+    """Enhanced retry logic with exponential backoff and critical error handling"""
+    for attempt in range(max_retries):
         try:
             return await func()
         except Exception as e:
-            last_exception = e
             error_str = str(e).lower()
             
-            # Check for specific error types
-            if "rate limit" in error_str or "quota" in error_str or "429" in error_str:
-                error_type = "RATE_LIMIT"
-                if attempt < max_retries:
-                    # For rate limits, wait longer
-                    delay = min(base_delay * (3 ** attempt), max_delay)
-                    logger.warning(f"🔄 {provider} rate limit hit. Retrying in {delay:.1f}s... (attempt {attempt + 1}/{max_retries + 1})")
-                    await asyncio.sleep(delay)
-                    continue
+            # Critical auth errors - stop immediately, don't retry
+            if any(pattern in error_str for pattern in [
+                "auth", "unauthorized", "forbidden", "invalid api key", "api key", 
+                "authentication failed", "credentials", "access denied", "token expired",
+                "expiredtokenexception", "security token", "session token"
+            ]):
+                if "expired" in error_str or "expiredtoken" in error_str:
+                    raise CriticalAuthError(provider, f"AWS session token expired: {str(e)}")
                 else:
-                    raise APIError(provider, error_type, f"Rate limit exceeded after {max_retries} retries", e)
+                    raise CriticalAuthError(provider, f"Authentication failed: {str(e)}")
             
-            elif "unauthorized" in error_str or "invalid" in error_str or "api" in error_str and "key" in error_str or "401" in error_str or "403" in error_str:
-                error_type = "AUTH_FAILED"
-                # Don't retry auth failures - API key is invalid
-                raise APIError(provider, error_type, f"API key authentication failed: {str(e)}", e)
-            
-            elif "connection" in error_str or "timeout" in error_str or "network" in error_str or "502" in error_str or "503" in error_str or "504" in error_str:
-                error_type = "CONNECTION_ERROR"
-                if attempt < max_retries:
+            # Retryable errors
+            elif any(pattern in error_str for pattern in [
+                "rate limit", "too many requests", "connection", "timeout", 
+                "network", "502", "503", "504", "internal error", "server error"
+            ]):
+                if attempt < max_retries - 1:
                     delay = min(base_delay * (2 ** attempt), max_delay)
-                    logger.warning(f"🔄 {provider} connection error. Retrying in {delay:.1f}s... (attempt {attempt + 1}/{max_retries + 1})")
                     await asyncio.sleep(delay)
                     continue
                 else:
-                    raise APIError(provider, error_type, f"Connection failed after {max_retries} retries", e)
+                    # Final attempt failed
+                    error_type = "RATE_LIMIT" if "rate limit" in error_str else "CONNECTION_ERROR"
+                    raise APIError(provider, error_type, f"Max retries exceeded: {str(e)}", should_retry=False)
             
+            # Unknown errors - treat as non-retryable
             else:
-                # Unknown error - don't retry
-                error_type = "UNKNOWN_ERROR"
-                raise APIError(provider, error_type, f"Unexpected error: {str(e)}", e)
+                raise APIError(provider, "UNKNOWN_ERROR", f"Unexpected error: {str(e)}", should_retry=False)
     
-    # Should never reach here, but just in case
-    raise APIError(provider, "RETRY_EXHAUSTED", f"All retries exhausted", last_exception)
+    # Should never reach here
+    raise APIError(provider, "RETRY_EXHAUSTED", "All retry attempts failed", should_retry=False)
 
 
 class ProjectComplexity(Enum):
@@ -101,38 +135,115 @@ class ProjectComplexity(Enum):
 
 
 class ProjectDomain(Enum):
-    """Software project domains"""
-    WEB_APPLICATION = "web_application"
-    DATA_PIPELINE = "data_pipeline"
-    API_SERVICE = "api_service"
-    MACHINE_LEARNING = "machine_learning"
-    DESKTOP_APPLICATION = "desktop_application"
-    MOBILE_APPLICATION = "mobile_application"
+    """Software project domains with sub-categories for uniqueness"""
+    # Web Applications (6 subcategories)
+    WEB_ECOMMERCE = "web_ecommerce"
+    WEB_SOCIAL = "web_social"
+    WEB_CMS = "web_cms"
+    WEB_DASHBOARD = "web_dashboard"
+    WEB_BLOG = "web_blog"
+    WEB_PORTFOLIO = "web_portfolio"
+    
+    # API Services (4 subcategories)  
+    API_REST = "api_rest"
+    API_GRAPHQL = "api_graphql"
+    API_MICROSERVICE = "api_microservice"
+    API_GATEWAY = "api_gateway"
+    
+    # Data Systems (5 subcategories)
+    DATA_ANALYTICS = "data_analytics"
+    DATA_ETL = "data_etl"
+    DATA_WAREHOUSE = "data_warehouse"
+    DATA_STREAMING = "data_streaming"
+    DATA_LAKE = "data_lake"
+    
+    # ML/AI (4 subcategories)
+    ML_TRAINING = "ml_training"
+    ML_INFERENCE = "ml_inference"
+    ML_NLP = "ml_nlp"
+    ML_COMPUTER_VISION = "ml_computer_vision"
+    
+    # Desktop Apps (3 subcategories)
+    DESKTOP_PRODUCTIVITY = "desktop_productivity"
+    DESKTOP_MEDIA = "desktop_media"
+    DESKTOP_DEVELOPMENT = "desktop_development"
+    
+    # Mobile Apps (3 subcategories)
+    MOBILE_SOCIAL = "mobile_social"
+    MOBILE_UTILITY = "mobile_utility"
+    MOBILE_GAME = "mobile_game"
+    
+    # Systems/Infrastructure (4 subcategories)
+    SYSTEM_MONITORING = "system_monitoring"
+    SYSTEM_AUTOMATION = "system_automation"
+    SYSTEM_NETWORKING = "system_networking"
+    SYSTEM_SECURITY = "system_security"
+    
+    # Finance/Business (3 subcategories)
+    FINTECH_PAYMENT = "fintech_payment"
+    FINTECH_TRADING = "fintech_trading"
+    FINTECH_BANKING = "fintech_banking"
+    
+    # Gaming (2 subcategories)
     GAME_ENGINE = "game_engine"
-    BLOCKCHAIN = "blockchain"
-    IOT_SYSTEM = "iot_system"
-    FINTECH_PLATFORM = "fintech_platform"
+    GAME_SIMULATION = "game_simulation"
+    
+    # Blockchain (2 subcategories)
+    BLOCKCHAIN_DEFI = "blockchain_defi"
+    BLOCKCHAIN_NFT = "blockchain_nft"
+
+
+class ProjectArchitecture(Enum):
+    """Architecture patterns for additional uniqueness"""
+    MONOLITHIC = "monolithic"
+    MICROSERVICES = "microservices"
+    SERVERLESS = "serverless"
+    EVENT_DRIVEN = "event_driven"
+    LAYERED = "layered"
+    CLEAN_ARCHITECTURE = "clean_architecture"
+    HEXAGONAL = "hexagonal"
+    MVC = "mvc"
+    MVVM = "mvvm"
+    COMPONENT_BASED = "component_based"
+
+
+class ProjectTheme(Enum):
+    """Project themes for additional variation"""
+    BUSINESS = "business"
+    EDUCATION = "education"
+    HEALTHCARE = "healthcare"
+    ENTERTAINMENT = "entertainment"
+    PRODUCTIVITY = "productivity"
+    SOCIAL = "social"
+    UTILITY = "utility"
+    CREATIVE = "creative"
 
 
 @dataclass
 class ProjectSpecification:
     """Specification for a synthetic project"""
+    unique_id: str                        # Guaranteed unique identifier
     name: str
     description: str
     domain: ProjectDomain
     complexity: ProjectComplexity
     language: str
+    architecture: ProjectArchitecture     # Architecture pattern
+    theme: ProjectTheme                   # Project theme
     target_file_count: int
     target_token_count: int
     features: List[str]
     architecture_patterns: List[str]
     dependencies: List[str]
+    seed: int                            # Deterministic seed for LLM variation
     
     def to_dict(self) -> Dict[str, Any]:
         data = asdict(self)
         # Convert enums to strings for JSON serialization
         data['domain'] = self.domain.value
         data['complexity'] = self.complexity.value
+        data['architecture'] = self.architecture.value
+        data['theme'] = self.theme.value
         return data
 
 
@@ -173,8 +284,14 @@ class SyntheticProject:
 class MultiLLMGenerator:
     """Multi-LLM system for generating diverse, high-quality synthetic projects"""
     
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, log_file: str = None):
         self.config = config
+        
+        # Setup logging
+        self.logger = setup_generation_logging(log_file)
+        self.logger.info("🚀 MultiLLMGenerator initialized")
+        
+        self.rate_limiter = APIRateLimitManager(config)
         self.setup_llm_clients()
         
         # Generator specialization (using 3 Elite Models)
@@ -205,7 +322,7 @@ class MultiLLMGenerator:
                     region_name='us-east-1'  # Default region
                 )
                 self.use_bedrock = True
-                logger.info("✅ Using Claude via AWS Bedrock")
+                self.logger.info("✅ Using Claude via AWS Bedrock")
             else:
                 raise Exception("AWS credentials not found")
         except Exception:
@@ -214,119 +331,126 @@ class MultiLLMGenerator:
                 api_key=self.config.api.anthropic_api_key
             )
             self.use_bedrock = False
-            logger.info("✅ Using Claude via direct Anthropic API")
+            self.logger.info("✅ Using Claude via direct Anthropic API")
         
         # Google
         genai.configure(api_key=self.config.api.google_api_key)
         
-        logger.info("✅ Multi-LLM generator initialized")
+        self.logger.info("✅ Multi-LLM generator initialized")
     
     async def generate_with_openai(self, prompt: str, system_prompt: str = None) -> str:
-        """Generate content using OpenAI with retry logic"""
+        """Generate content using OpenAI with retry logic and rate limiting"""
         
         async def _make_openai_call():
             if not self.config.api.openai_api_key:
                 raise APIError("OpenAI", "AUTH_FAILED", "OpenAI API key not configured")
             
-            messages = []
-            if system_prompt:
-                messages.append({"role": "system", "content": system_prompt})
-            messages.append({"role": "user", "content": prompt})
-            
-            # Handle o3 model special API format
-            if self.config.api.default_model_openai.startswith(("o1", "o3")):
-                response = await self.openai_client.chat.completions.create(
-                    model=self.config.api.default_model_openai,
-                    messages=messages,
-                    max_completion_tokens=4000
-                )
-            else:
-                response = await self.openai_client.chat.completions.create(
-                    model=self.config.api.default_model_openai,
-                    messages=messages,
-                    max_tokens=4000,
-                    temperature=0.7
-                )
-            
-            return response.choices[0].message.content
+                            # Apply rate limiting
+                async with await self.rate_limiter.acquire("openai"):
+                    messages = []
+                    if system_prompt:
+                        messages.append({"role": "system", "content": system_prompt})
+                    messages.append({"role": "user", "content": prompt})
+                    
+                    # Handle o3 model special API format
+                    if self.config.api.default_model_openai.startswith(("o1", "o3")):
+                        response = await self.openai_client.chat.completions.create(
+                            model=self.config.api.default_model_openai,
+                            messages=messages,
+                            max_completion_tokens=50000  # o3 supports up to 100K, using 50K for safety
+                        )
+                    else:
+                        response = await self.openai_client.chat.completions.create(
+                            model=self.config.api.default_model_openai,
+                            messages=messages,
+                            max_tokens=32000,  # Increased for other OpenAI models
+                            temperature=0.7
+                        )
+                
+                return response.choices[0].message.content
         
         return await retry_with_backoff(_make_openai_call, provider="OpenAI o3")
     
     async def generate_with_anthropic(self, prompt: str, system_prompt: str = None) -> str:
-        """Generate content using Claude Sonnet 4 via AWS Bedrock with retry logic"""
+        """Generate content using Claude Sonnet 4 via AWS Bedrock with retry logic and rate limiting"""
         
         async def _make_anthropic_call():
             if not self.use_bedrock:
                 raise APIError("Claude Sonnet 4", "AUTH_FAILED", "AWS Bedrock credentials not configured properly")
             
-            # Build message content in correct format for Claude Sonnet 4
-            user_content = prompt
-            if system_prompt:
-                user_content = f"{system_prompt}\n\n{prompt}"
-            
-            messages = [
-                {
-                    "role": "user", 
-                    "content": [{"type": "text", "text": user_content}]
+            # Apply rate limiting
+            async with await self.rate_limiter.acquire("anthropic"):
+                # Build message content in correct format for Claude Sonnet 4
+                user_content = prompt
+                if system_prompt:
+                    user_content = f"{system_prompt}\n\n{prompt}"
+                
+                messages = [
+                    {
+                        "role": "user", 
+                        "content": [{"type": "text", "text": user_content}]
+                    }
+                ]
+                
+                body = {
+                    "anthropic_version": "bedrock-2023-05-31",
+                    "max_tokens": 32000,  # Increased for Claude Sonnet 4
+                    "temperature": 0.7,
+                    "top_p": 0.95,
+                    "messages": messages
                 }
-            ]
-            
-            body = {
-                "anthropic_version": "bedrock-2023-05-31",
-                "max_tokens": 4000,
-                "temperature": 0.7,
-                "messages": messages
-            }
-            
-            # Elite Claude Sonnet 4 model (confirmed working)
-            model_id = "us.anthropic.claude-sonnet-4-20250514-v1:0"
-            
-            # Run Bedrock call in thread pool since it's synchronous
-            loop = asyncio.get_event_loop()
-            request_body = json.dumps(body)
-            
-            response = await loop.run_in_executor(
-                None,
-                lambda: self.bedrock_client.invoke_model(
-                    modelId=model_id,
-                    body=request_body,
-                    contentType="application/json"
+                
+                # Elite Claude Sonnet 4 model (confirmed working)
+                model_id = "us.anthropic.claude-sonnet-4-20250514-v1:0"
+                
+                # Run Bedrock call in thread pool since it's synchronous
+                loop = asyncio.get_event_loop()
+                request_body = json.dumps(body)
+                
+                response = await loop.run_in_executor(
+                    None,
+                    lambda: self.bedrock_client.invoke_model(
+                        modelId=model_id,
+                        body=request_body,
+                        contentType="application/json"
+                    )
                 )
-            )
-            
-            # Parse response according to AWS documentation
-            response_body = json.loads(response['body'].read())
-            return response_body['content'][0]['text']
+                
+                # Parse response according to AWS documentation
+                response_body = json.loads(response['body'].read())
+                return response_body['content'][0]['text']
         
         return await retry_with_backoff(_make_anthropic_call, provider="Claude Sonnet 4 (AWS Bedrock)")
     
     async def generate_with_google(self, prompt: str, system_prompt: str = None) -> str:
-        """Generate content using Gemini 2.5 Pro with retry logic"""
+        """Generate content using Gemini 2.5 Pro with retry logic and rate limiting"""
         
         async def _make_google_call():
             if not self.config.api.google_api_key:
                 raise APIError("Gemini 2.5 Pro", "AUTH_FAILED", "Google API key not configured")
             
-            # Configure generation parameters for high-quality code generation
-            generation_config = genai.types.GenerationConfig(
-                temperature=0.7,
-                max_output_tokens=4000,
-                top_p=0.95,
-                top_k=40
-            )
-            
-            model = genai.GenerativeModel(
-                model_name=self.config.api.default_model_google,
-                generation_config=generation_config
-            )
-            
-            full_prompt = prompt
-            if system_prompt:
-                full_prompt = f"{system_prompt}\n\n{prompt}"
-            
-            # Use synchronous call to avoid async issues with Gemini
-            response = model.generate_content(full_prompt)
-            return response.text
+            # Apply rate limiting
+            async with await self.rate_limiter.acquire("google"):
+                # Configure generation parameters for high-quality code generation
+                generation_config = genai.types.GenerationConfig(
+                    temperature=0.7,
+                    max_output_tokens=32000,  # Increased for Gemini 2.5 Pro
+                    top_p=0.95,
+                    top_k=40
+                )
+                
+                model = genai.GenerativeModel(
+                    model_name=self.config.api.default_model_google,
+                    generation_config=generation_config
+                )
+                
+                full_prompt = prompt
+                if system_prompt:
+                    full_prompt = f"{system_prompt}\n\n{prompt}"
+                
+                # Use synchronous call to avoid async issues with Gemini
+                response = model.generate_content(full_prompt)
+                return response.text
         
         return await retry_with_backoff(_make_google_call, provider="Gemini 2.5 Pro")
     
@@ -363,24 +487,41 @@ class ProjectTemplateManager:
     """Manages project templates and domain-specific patterns"""
     
     def __init__(self):
-        self.domain_templates = {
-            ProjectDomain.WEB_APPLICATION: {
+        # Define base templates for major categories
+        self.base_templates = {
+            "web": {
                 "features": [
                     "user_authentication", "database_integration", "api_endpoints",
                     "frontend_interface", "session_management", "data_validation",
                     "email_notifications", "file_upload", "search_functionality",
-                    "admin_panel", "logging_system", "error_handling"
+                    "admin_panel", "logging_system", "error_handling", "responsive_design",
+                    "payment_processing", "social_login", "caching", "ssl_security"
                 ],
                 "patterns": [
                     "MVC", "REST_API", "Database_ORM", "Authentication_Middleware",
-                    "Component_Architecture", "Service_Layer"
+                    "Component_Architecture", "Service_Layer", "Repository_Pattern"
                 ],
                 "file_types": [
                     "controllers", "models", "views", "routes", "middleware",
-                    "services", "utils", "config", "tests"
+                    "services", "utils", "config", "tests", "static", "templates"
                 ]
             },
-            ProjectDomain.DATA_PIPELINE: {
+            "api": {
+                "features": [
+                    "rest_endpoints", "graphql_schema", "authentication", "rate_limiting",
+                    "request_validation", "response_caching", "api_documentation",
+                    "error_handling", "logging", "monitoring", "versioning", "pagination"
+                ],
+                "patterns": [
+                    "REST_Architecture", "GraphQL_Schema", "Microservices", "API_Gateway",
+                    "Repository_Pattern", "Service_Layer", "Command_Query_Separation"
+                ],
+                "file_types": [
+                    "endpoints", "schemas", "models", "validators", "middleware",
+                    "services", "utils", "config", "tests", "docs"
+                ]
+            },
+            "data": {
                 "features": [
                     "data_ingestion", "data_transformation", "data_validation",
                     "batch_processing", "stream_processing", "data_storage",
@@ -389,14 +530,14 @@ class ProjectTemplateManager:
                 ],
                 "patterns": [
                     "ETL_Pipeline", "Event_Streaming", "Data_Lake", "Microservices",
-                    "Observer_Pattern", "Strategy_Pattern"
+                    "Observer_Pattern", "Strategy_Pattern", "Pipeline_Pattern"
                 ],
                 "file_types": [
                     "extractors", "transformers", "loaders", "validators",
-                    "schedulers", "monitors", "config", "tests"
+                    "schedulers", "monitors", "config", "tests", "pipelines"
                 ]
             },
-            ProjectDomain.MACHINE_LEARNING: {
+            "ml": {
                 "features": [
                     "data_preprocessing", "feature_engineering", "model_training",
                     "model_evaluation", "hyperparameter_tuning", "model_serving",
@@ -405,19 +546,169 @@ class ProjectTemplateManager:
                 ],
                 "patterns": [
                     "Pipeline_Pattern", "Factory_Pattern", "Strategy_Pattern",
-                    "Observer_Pattern", "MLOps_Architecture"
+                    "Observer_Pattern", "MLOps_Architecture", "Model_Registry"
                 ],
                 "file_types": [
                     "data", "features", "models", "training", "evaluation",
-                    "serving", "utils", "config", "tests"
+                    "serving", "utils", "config", "tests", "experiments"
+                ]
+            },
+            "desktop": {
+                "features": [
+                    "gui_interface", "file_management", "settings_configuration",
+                    "plugin_system", "auto_updates", "crash_reporting", "user_preferences",
+                    "keyboard_shortcuts", "drag_drop", "multi_window", "themes"
+                ],
+                "patterns": [
+                    "MVC", "MVVM", "Observer_Pattern", "Command_Pattern", "Plugin_Architecture",
+                    "Event_Driven", "State_Machine"
+                ],
+                "file_types": [
+                    "views", "controllers", "models", "plugins", "resources",
+                    "configs", "utils", "tests", "assets", "localization"
+                ]
+            },
+            "mobile": {
+                "features": [
+                    "responsive_ui", "offline_sync", "push_notifications", "location_services",
+                    "camera_integration", "local_storage", "biometric_auth", "social_sharing",
+                    "in_app_purchases", "analytics", "crash_reporting"
+                ],
+                "patterns": [
+                    "MVVM", "Repository_Pattern", "Observer_Pattern", "Singleton",
+                    "Factory_Pattern", "Adapter_Pattern"
+                ],
+                "file_types": [
+                    "views", "viewmodels", "models", "services", "repositories",
+                    "utils", "config", "tests", "resources", "assets"
+                ]
+            },
+            "system": {
+                "features": [
+                    "system_monitoring", "log_aggregation", "performance_metrics",
+                    "alerting", "configuration_management", "deployment_automation",
+                    "security_scanning", "backup_recovery", "load_balancing"
+                ],
+                "patterns": [
+                    "Observer_Pattern", "Strategy_Pattern", "Command_Pattern",
+                    "Chain_of_Responsibility", "Service_Mesh", "Event_Driven"
+                ],
+                "file_types": [
+                    "monitors", "collectors", "processors", "alerts", "configs",
+                    "scripts", "utils", "tests", "dashboards"
+                ]
+            },
+            "fintech": {
+                "features": [
+                    "payment_processing", "transaction_management", "fraud_detection",
+                    "compliance_reporting", "risk_assessment", "encryption", "audit_logging",
+                    "multi_currency", "settlement", "kyc_verification", "regulatory_compliance"
+                ],
+                "patterns": [
+                    "Saga_Pattern", "Event_Sourcing", "CQRS", "Microservices",
+                    "Security_by_Design", "Audit_Trail"
+                ],
+                "file_types": [
+                    "transactions", "payments", "security", "compliance", "audit",
+                    "models", "services", "utils", "config", "tests"
+                ]
+            },
+            "gaming": {
+                "features": [
+                    "game_engine", "physics_simulation", "graphics_rendering", "audio_system",
+                    "input_handling", "ai_behavior", "networking", "save_system",
+                    "resource_management", "scripting_system", "level_editor"
+                ],
+                "patterns": [
+                    "Entity_Component_System", "Game_Loop", "State_Machine",
+                    "Observer_Pattern", "Object_Pool", "Command_Pattern"
+                ],
+                "file_types": [
+                    "engine", "physics", "graphics", "audio", "input", "ai",
+                    "network", "scripts", "assets", "config", "tests"
+                ]
+            },
+            "blockchain": {
+                "features": [
+                    "smart_contracts", "wallet_integration", "transaction_processing",
+                    "consensus_mechanism", "cryptographic_functions", "token_management",
+                    "defi_protocols", "nft_minting", "governance", "staking"
+                ],
+                "patterns": [
+                    "Event_Driven", "Factory_Pattern", "Proxy_Pattern",
+                    "State_Machine", "Observer_Pattern", "Strategy_Pattern"
+                ],
+                "file_types": [
+                    "contracts", "tokens", "protocols", "wallets", "crypto",
+                    "governance", "utils", "config", "tests", "migrations"
                 ]
             }
-            # Add more domains as needed
+        }
+        
+        # Map each domain subcategory to its base template
+        self.domain_mapping = {
+            # Web Applications
+            ProjectDomain.WEB_ECOMMERCE: "web",
+            ProjectDomain.WEB_SOCIAL: "web", 
+            ProjectDomain.WEB_CMS: "web",
+            ProjectDomain.WEB_DASHBOARD: "web",
+            ProjectDomain.WEB_BLOG: "web",
+            ProjectDomain.WEB_PORTFOLIO: "web",
+            
+            # API Services
+            ProjectDomain.API_REST: "api",
+            ProjectDomain.API_GRAPHQL: "api",
+            ProjectDomain.API_MICROSERVICE: "api",
+            ProjectDomain.API_GATEWAY: "api",
+            
+            # Data Systems
+            ProjectDomain.DATA_ANALYTICS: "data",
+            ProjectDomain.DATA_ETL: "data",
+            ProjectDomain.DATA_WAREHOUSE: "data",
+            ProjectDomain.DATA_STREAMING: "data",
+            ProjectDomain.DATA_LAKE: "data",
+            
+            # ML/AI Systems
+            ProjectDomain.ML_TRAINING: "ml",
+            ProjectDomain.ML_INFERENCE: "ml",
+            ProjectDomain.ML_NLP: "ml",
+            ProjectDomain.ML_COMPUTER_VISION: "ml",
+            
+            # Desktop Applications
+            ProjectDomain.DESKTOP_PRODUCTIVITY: "desktop",
+            ProjectDomain.DESKTOP_MEDIA: "desktop",
+            ProjectDomain.DESKTOP_DEVELOPMENT: "desktop",
+            
+            # Mobile Applications
+            ProjectDomain.MOBILE_SOCIAL: "mobile",
+            ProjectDomain.MOBILE_UTILITY: "mobile",
+            ProjectDomain.MOBILE_GAME: "mobile",
+            
+            # System Infrastructure
+            ProjectDomain.SYSTEM_MONITORING: "system",
+            ProjectDomain.SYSTEM_AUTOMATION: "system",
+            ProjectDomain.SYSTEM_NETWORKING: "system",
+            ProjectDomain.SYSTEM_SECURITY: "system",
+            
+            # Financial Technology
+            ProjectDomain.FINTECH_PAYMENT: "fintech",
+            ProjectDomain.FINTECH_TRADING: "fintech",
+            ProjectDomain.FINTECH_BANKING: "fintech",
+            
+            # Gaming & Simulation
+            ProjectDomain.GAME_ENGINE: "gaming",
+            ProjectDomain.GAME_SIMULATION: "gaming",
+            
+            # Blockchain Systems
+            ProjectDomain.BLOCKCHAIN_DEFI: "blockchain",
+            ProjectDomain.BLOCKCHAIN_NFT: "blockchain"
         }
     
     def get_template(self, domain: ProjectDomain, complexity: ProjectComplexity) -> Dict[str, Any]:
         """Get project template based on domain and complexity"""
-        base_template = self.domain_templates.get(domain, self.domain_templates[ProjectDomain.WEB_APPLICATION])
+        # Map the specific domain to its base template category
+        template_category = self.domain_mapping.get(domain, "web")  # Default to web if not found
+        base_template = self.base_templates[template_category]
         
         # Adjust template based on complexity
         complexity_multipliers = {
@@ -445,9 +736,9 @@ class ProjectTemplateManager:
 class SyntheticProjectGenerator:
     """Main synthetic project generator"""
     
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, log_file: str = None):
         self.config = config
-        self.llm_generator = MultiLLMGenerator(config)
+        self.llm_generator = MultiLLMGenerator(config, log_file)
         self.template_manager = ProjectTemplateManager()
         
         # Create output directories
@@ -464,16 +755,31 @@ class SyntheticProjectGenerator:
         
         template = self.template_manager.get_template(domain, complexity)
         
-        # Calculate target metrics based on complexity
+        # Calculate target metrics based on complexity and config constraints
         complexity_ranges = {
-            ProjectComplexity.EASY: {"files": (5, 15), "tokens": (10000, 40000)},
-            ProjectComplexity.MEDIUM: {"files": (15, 40), "tokens": (40000, 100000)},
-            ProjectComplexity.HARD: {"files": (40, 80), "tokens": (100000, 200000)},
-            ProjectComplexity.EXPERT: {"files": (80, 150), "tokens": (200000, 500000)}
+            ProjectComplexity.EASY: {
+                "files": (self.config.data.min_files_per_project, min(self.config.data.max_files_per_project, 15)),
+                "tokens": tuple(self.config.benchmark.context_ranges["easy"])
+            },
+            ProjectComplexity.MEDIUM: {
+                "files": (max(15, self.config.data.min_files_per_project), min(self.config.data.max_files_per_project, 40)),
+                "tokens": tuple(self.config.benchmark.context_ranges["medium"])
+            },
+            ProjectComplexity.HARD: {
+                "files": (max(40, self.config.data.min_files_per_project), min(self.config.data.max_files_per_project, 80)),
+                "tokens": tuple(self.config.benchmark.context_ranges["hard"])
+            },
+            ProjectComplexity.EXPERT: {
+                "files": (max(80, self.config.data.min_files_per_project), self.config.data.max_files_per_project),
+                "tokens": tuple(self.config.benchmark.context_ranges["expert"])
+            }
         }
         
         ranges = complexity_ranges[complexity]
-        target_file_count = random.randint(*ranges["files"])
+        # Ensure file count respects config constraints
+        min_files = max(ranges["files"][0], self.config.data.min_files_per_project)
+        max_files = min(ranges["files"][1], self.config.data.max_files_per_project)
+        target_file_count = random.randint(min_files, max_files)
         target_token_count = random.randint(*ranges["tokens"])
         
         # Generate specification using LLM
@@ -517,16 +823,130 @@ class SyntheticProjectGenerator:
             }
         
         return ProjectSpecification(
+            unique_id=f"{domain.value}-{complexity.value}-{language}-{random.randint(1000, 9999)}", # Generate a unique ID
             name=spec_data["name"],
             description=spec_data["description"],
             domain=domain,
             complexity=complexity,
             language=language,
+            architecture=ProjectArchitecture.MICROSERVICES, # Default to microservices for now
+            theme=ProjectTheme.BUSINESS, # Default to business for now
             target_file_count=target_file_count,
             target_token_count=target_token_count,
             features=template["features"],
             architecture_patterns=template["patterns"],
-            dependencies=spec_data.get("dependencies", [])
+            dependencies=spec_data.get("dependencies", []),
+            seed=random.randint(1, 1000000) # Add a seed for deterministic generation
+        )
+    
+    async def generate_project_specification_unique(
+        self, 
+        domain: ProjectDomain, 
+        complexity: ProjectComplexity,
+        language: str,
+        architecture: ProjectArchitecture,
+        theme: ProjectTheme,
+        unique_id: str,
+        seed: int
+    ) -> ProjectSpecification:
+        """Generate a unique project specification using all uniqueness factors"""
+        
+        # Set deterministic seed for consistent but unique generation
+        import random
+        random.seed(seed)
+        
+        template = self.template_manager.get_template(domain, complexity)
+        
+        # Calculate target metrics based on complexity and config constraints
+        complexity_ranges = {
+            ProjectComplexity.EASY: {
+                "files": (self.config.data.min_files_per_project, min(self.config.data.max_files_per_project, 15)),
+                "tokens": tuple(self.config.benchmark.context_ranges["easy"])
+            },
+            ProjectComplexity.MEDIUM: {
+                "files": (max(15, self.config.data.min_files_per_project), min(self.config.data.max_files_per_project, 40)),
+                "tokens": tuple(self.config.benchmark.context_ranges["medium"])
+            },
+            ProjectComplexity.HARD: {
+                "files": (max(40, self.config.data.min_files_per_project), min(self.config.data.max_files_per_project, 80)),
+                "tokens": tuple(self.config.benchmark.context_ranges["hard"])
+            },
+            ProjectComplexity.EXPERT: {
+                "files": (max(80, self.config.data.min_files_per_project), self.config.data.max_files_per_project),
+                "tokens": tuple(self.config.benchmark.context_ranges["expert"])
+            }
+        }
+        
+        ranges = complexity_ranges[complexity]
+        # Add seed-based variation to target counts for uniqueness
+        min_files = max(ranges["files"][0], self.config.data.min_files_per_project)
+        max_files = min(ranges["files"][1], self.config.data.max_files_per_project)
+        target_file_count = random.randint(min_files, max_files)
+        target_token_count = random.randint(*ranges["tokens"])
+        
+        # Generate specification using LLM with unique factors
+        prompt = f"""
+        Generate a detailed specification for a {complexity.value} {domain.value} project in {language}.
+        
+        Requirements:
+        - Project ID: {unique_id}
+        - Domain: {domain.value}
+        - Complexity: {complexity.value}
+        - Architecture: {architecture.value}
+        - Theme: {theme.value}
+        - Target files: {target_file_count}
+        - Target tokens: {target_token_count}
+        - Features to include: {', '.join(template['features'])}
+        - Architecture patterns: {', '.join(template['patterns'])}
+        
+        Create a project that specifically focuses on {theme.value} applications using {architecture.value} architecture.
+        The project should be distinctly different from other {domain.value} projects by emphasizing the {theme.value} aspect.
+        
+        Please provide:
+        1. Project name (creative, unique, reflecting the {theme.value} theme)
+        2. Detailed description (2-3 paragraphs, emphasizing {theme.value} and {architecture.value})
+        3. List of main dependencies/libraries (appropriate for {architecture.value})
+        4. Brief explanation of why this {architecture.value} approach fits this {theme.value} project
+        
+        Return as JSON with keys: name, description, dependencies, architecture_justification
+        """
+        
+        system_prompt = f"""You are a senior software architect specializing in {theme.value} applications using {architecture.value} architecture. 
+        Generate specifications for unique, realistic projects that would represent real-world {theme.value} software of the specified complexity.
+        Each project should be distinctly different, even within the same domain, by leveraging different aspects of the {theme.value} theme and {architecture.value} patterns."""
+        
+        response = await self.llm_generator.generate_with_model(
+            self.llm_generator.generators["requirements"],
+            prompt,
+            system_prompt
+        )
+        
+        try:
+            spec_data = json.loads(response)
+        except json.JSONDecodeError:
+            # Fallback if JSON parsing fails - make it unique based on factors
+            spec_data = {
+                "name": f"{theme.value.title()} {domain.value.replace('_', ' ').title()} ({architecture.value.title()})",
+                "description": f"A {complexity.value} {domain.value} implementation in {language} focused on {theme.value} applications using {architecture.value} architecture.",
+                "dependencies": [],
+                "architecture_justification": f"Uses {architecture.value} architecture to support {theme.value} requirements with {complexity.value} complexity."
+            }
+        
+        return ProjectSpecification(
+            unique_id=unique_id,
+            name=spec_data["name"],
+            description=spec_data["description"],
+            domain=domain,
+            complexity=complexity,
+            language=language,
+            architecture=architecture,
+            theme=theme,
+            target_file_count=target_file_count,
+            target_token_count=target_token_count,
+            features=template["features"],
+            architecture_patterns=template["patterns"],
+            dependencies=spec_data.get("dependencies", []),
+            seed=seed
         )
     
     async def generate_project_architecture(self, spec: ProjectSpecification) -> Tuple[Dict[str, Any], str]:
@@ -653,6 +1073,65 @@ class SyntheticProjectGenerator:
         score = min(1.0, (line_count / 100) * 0.6 + comment_ratio * 0.2 + (avg_line_length / 80) * 0.2)
         
         return round(score, 2)
+    
+    def _validate_project_constraints(self, generated_files: List[dict], spec: ProjectSpecification):
+        """Validate that generated project meets configuration constraints"""
+        file_count = len(generated_files)
+        
+        # Check file count constraints
+        if file_count < self.config.data.min_files_per_project:
+            logger.warning(
+                f"⚠️ Project '{spec.name}' has {file_count} files, "
+                f"below minimum of {self.config.data.min_files_per_project}"
+            )
+        elif file_count > self.config.data.max_files_per_project:
+            logger.warning(
+                f"⚠️ Project '{spec.name}' has {file_count} files, "
+                f"above maximum of {self.config.data.max_files_per_project}"
+            )
+        
+        # Calculate complexity scores for validation
+        complexity_scores = []
+        documentation_files = 0
+        
+        for file_info in generated_files:
+            complexity_score = self._calculate_complexity_score(file_info['content'])
+            complexity_scores.append(complexity_score)
+            
+            # Check if this is a documentation file
+            if file_info['type'] == 'documentation' or any(doc_indicator in file_info['path'].lower() 
+                for doc_indicator in ['readme', 'doc', 'documentation']):
+                documentation_files += 1
+        
+        # Check average complexity constraints and filter if needed
+        avg_complexity = sum(complexity_scores) / len(complexity_scores) if complexity_scores else 0
+        
+        # Filter out files that don't meet complexity requirements
+        if avg_complexity < self.config.data.min_complexity_score:
+            logger.warning(
+                f"⚠️ Project '{spec.name}' average complexity {avg_complexity:.2f} "
+                f"below minimum {self.config.data.min_complexity_score}. "
+                f"Consider regenerating or adjusting constraints."
+            )
+        elif avg_complexity > self.config.data.max_complexity_score:
+            logger.warning(
+                f"⚠️ Project '{spec.name}' average complexity {avg_complexity:.2f} "
+                f"above maximum {self.config.data.max_complexity_score}. "
+                f"Consider simplifying or adjusting constraints."
+            )
+        
+        # Check documentation ratio
+        documentation_ratio = documentation_files / file_count if file_count > 0 else 0
+        if documentation_ratio < self.config.data.min_documentation_ratio:
+            logger.warning(
+                f"⚠️ Project '{spec.name}' documentation ratio {documentation_ratio:.2f} "
+                f"below minimum {self.config.data.min_documentation_ratio}"
+            )
+        
+        logger.debug(
+            f"✅ Project '{spec.name}' validation: {file_count} files, "
+            f"complexity {avg_complexity:.2f}, docs {documentation_ratio:.2f}"
+        )
     
     async def generate_complete_project(
         self, 
@@ -828,16 +1307,20 @@ class SyntheticProjectGenerator:
         
         # Convert dict back to ProjectSpecification object
         spec = ProjectSpecification(
+            unique_id=f"{ProjectDomain(spec_dict['domain']).value}-{ProjectComplexity(spec_dict['complexity']).value}-{spec_dict['language']}-{random.randint(1000, 9999)}", # Generate a unique ID
             name=spec_dict['name'],
             description=spec_dict['description'],
             domain=ProjectDomain(spec_dict['domain']),
             complexity=ProjectComplexity(spec_dict['complexity']),
             language=spec_dict['language'],
+            architecture=ProjectArchitecture.MICROSERVICES, # Default to microservices for now
+            theme=ProjectTheme.BUSINESS, # Default to business for now
             target_file_count=target_files,
             target_token_count=target_tokens,
             features=spec_dict.get('features', []),
             architecture_patterns=spec_dict.get('architecture_patterns', []),
-            dependencies=spec_dict.get('dependencies', [])
+            dependencies=spec_dict.get('dependencies', []),
+            seed=random.randint(1, 1000000) # Add a seed for deterministic generation
         )
         
         # Generate a proper file structure for this project
@@ -892,6 +1375,9 @@ class SyntheticProjectGenerator:
         total_lines = sum(len(f['content'].splitlines()) for f in generated_files)
         total_chars = sum(len(f['content']) for f in generated_files)
         console.print(f"      🎉 [bold green]All files generated![/bold green] {len(generated_files)} files, {total_lines:,} lines, {total_chars:,} chars")
+        
+        # Validate project constraints
+        self._validate_project_constraints(generated_files, spec)
         
         return generated_files
     
