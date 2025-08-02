@@ -19,9 +19,7 @@ api:
 
 data:
   # Local storage directories
-  cache_dir: "./data/cache"
   output_dir: "./data/output"
-  benchmark_dir: "./data/benchmark"
   generated_dir: "./data/generated"
   templates_dir: "./data/templates"
   

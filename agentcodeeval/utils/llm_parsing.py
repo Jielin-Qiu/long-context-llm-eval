@@ -20,10 +20,23 @@ class LLMResponseParser:
     def __init__(self):
         # Patterns for different response formats
         self.json_patterns = [
-            r'```json\s*(\{.*?\})\s*```',  # JSON in markdown
-            r'```\s*(\{.*?\})\s*```',      # JSON in generic code block
-            r'(\{[^{}]*"files"[^{}]*\{.*?\}[^{}]*\})',  # JSON with "files" key
-            r'(\{.*?\})',                   # Any JSON-like structure
+            # Pattern 1: ```json blocks - enhanced for very long content
+            r'```json\s*(\{.*?\})\s*```',
+            
+            # Pattern 2: Generic ``` blocks  
+            r'```\s*(\{.*?\})\s*```',
+            
+            # Pattern 3: Specific files pattern - non-greedy
+            r'(\{[^{}]*?"files"[^{}]*?\{.*?\}[^{}]*?\})',
+            
+            # Pattern 4: Any JSON-like structure - more conservative
+            r'(\{(?:[^{}]|\{[^{}]*\})*\})',
+            
+            # Pattern 5: NEW - Handle very long JSON with line breaks (non-greedy)
+            r'```json\s*(\{(?:[^`]|`(?!``))*\})\s*```',
+            
+            # Pattern 6: NEW - Multiline JSON without markdown
+            r'(\{(?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*\})'
         ]
         
         self.code_block_patterns = {
@@ -48,45 +61,64 @@ class LLMResponseParser:
             'cpp': ['#include', 'int main', 'class ', 'namespace ']
         }
 
-    def parse_solution_response(self, response: str, expected_language: str = 'go') -> Dict[str, str]:
-        """
-        Parse LLM response with multiple fallback strategies
+    def _is_viable_result(self, files: Dict[str, str]) -> bool:
+        """Check if the extracted files are viable (not suspiciously short)"""
+        if not files:
+            return False
         
-        Args:
-            response: Raw LLM response
-            expected_language: Expected programming language
-            
-        Returns:
-            Dictionary mapping filenames to code content
-        """
+        # Check if any file has reasonable content length
+        min_viable_length = 50  # Minimum characters for viable code
         
-        logger.info(f"Parsing response of {len(response)} characters")
+        for filename, content in files.items():
+            # For code files, expect at least some meaningful content
+            if len(content) >= min_viable_length:
+                return True
         
-        # Strategy 1: Try to extract structured JSON
+        # If all files are very short, this might be a parsing artifact
+        return False
+
+    def parse(self, response: str, expected_language: str = 'python') -> Dict[str, str]:
+        """Parse LLM response with multiple fallback strategies"""
+        
+        # Strategy 1: Structured JSON extraction
         structured_result = self._extract_structured_json(response)
-        if structured_result:
-            logger.info("✅ Successfully extracted structured JSON")
+        if structured_result and self._is_viable_result(structured_result):
+            logger.info(f"✅ Successfully extracted {len(structured_result)} files from structured JSON")
             return structured_result
-        
-        # Strategy 2: Try to extract code from JSON-like structures
-        json_code_result = self._extract_code_from_json_like(response)
-        if json_code_result:
-            logger.info("✅ Successfully extracted code from JSON-like structure")
-            return json_code_result
             
-        # Strategy 3: Extract code blocks by language
+        # Strategy 2: JSON-like structures with viability check
+        json_like_result = self._extract_code_from_json_like(response)
+        if json_like_result and self._is_viable_result(json_like_result):
+            logger.info(f"✅ Successfully extracted {len(json_like_result)} files from JSON-like structure")
+            return json_like_result
+            
+        # Strategy 3: Markdown code blocks
         code_blocks_result = self._extract_code_blocks(response, expected_language)
-        if code_blocks_result:
+        if code_blocks_result and self._is_viable_result(code_blocks_result):
             logger.info(f"✅ Successfully extracted {len(code_blocks_result)} code blocks")
             return code_blocks_result
             
         # Strategy 4: Intelligent text parsing
         text_parsing_result = self._intelligent_text_parsing(response, expected_language)
-        if text_parsing_result:
+        if text_parsing_result and self._is_viable_result(text_parsing_result):
             logger.info("✅ Successfully parsed code from text analysis")
             return text_parsing_result
+        
+        # Strategy 5: Manual extraction for extremely long JSON
+        manual_result = self._extract_files_manually(response)
+        if manual_result and self._is_viable_result(manual_result):
+            logger.info("✅ Successfully extracted files manually")
+            return manual_result
             
-        # Strategy 5: Final fallback
+        # Strategy 6: If we got results but they were short, try the best short result
+        if json_like_result:
+            logger.warning("⚠️  Using short JSON-like result as last resort")
+            return json_like_result
+        elif structured_result:
+            logger.warning("⚠️  Using short structured result as last resort")
+            return structured_result
+            
+        # Strategy 7: Final fallback
         logger.warning("⚠️  Using fallback solution generation")
         return self._create_fallback_solution(response, expected_language)
 
@@ -242,15 +274,45 @@ class LLMResponseParser:
         # Fix trailing commas before closing brackets/braces
         json_str = re.sub(r',(\s*[}\]])', r'\1', json_str)
         
-        # The key fix: Don't pre-unescape here! 
-        # Let json.loads() handle the escaping properly
-        # Only fix malformed escaping patterns
+        # Enhanced cleaning for very long strings
         
         # Fix any double-escaped sequences that might confuse JSON parser
         json_str = json_str.replace('\\\\n', '\\n')  # Fix double-escaped newlines
         json_str = json_str.replace('\\\\t', '\\t')  # Fix double-escaped tabs
         json_str = json_str.replace('\\\\"', '\\"')  # Fix double-escaped quotes
         json_str = json_str.replace('\\\\r', '\\r')  # Fix double-escaped carriage returns
+        
+        # NEW: Handle problematic characters in very long strings
+        # Fix unescaped quotes that aren't part of JSON structure
+        # This is a more aggressive fix for malformed long strings
+        try:
+            # First, try to parse as-is
+            json.loads(json_str)
+            return json_str
+        except json.JSONDecodeError as e:
+            # If parsing fails, try to fix common issues
+            
+            # Try to identify if it's an unterminated string issue
+            if "Unterminated string" in str(e):
+                # More aggressive cleaning for very long content
+                # Split by lines and try to fix string escaping issues
+                lines = json_str.split('\n')
+                fixed_lines = []
+                
+                for line in lines:
+                    # Ensure all quotes in JSON string values are properly escaped
+                    # This is a simplified fix - more sophisticated logic could be added
+                    fixed_line = line
+                    
+                    # If we're inside a JSON string value (after :"), fix unescaped quotes
+                    if '": "' in line and not line.strip().endswith('",') and not line.strip().endswith('"'):
+                        # This might be a broken string - try to close it
+                        if not fixed_line.rstrip().endswith('"'):
+                            fixed_line = fixed_line.rstrip() + '"'
+                    
+                    fixed_lines.append(fixed_line)
+                
+                json_str = '\n'.join(fixed_lines)
         
         return json_str
 
@@ -390,9 +452,109 @@ Original LLM Response:
         
         return templates.get(language, templates['go'])
 
+    def _extract_files_manually(self, response: str) -> Optional[Dict[str, str]]:
+        """Manually extract files from JSON-like responses when regex fails
+        
+        This handles cases where the JSON contains extremely long strings
+        that break regex patterns.
+        """
+        
+        files = {}
+        
+        # Look for the files section
+        files_start = response.find('"files"')
+        if files_start == -1:
+            return None
+        
+        # Find the opening brace of the files object
+        brace_pos = response.find('{', files_start)
+        if brace_pos == -1:
+            return None
+        
+        # Parse character by character to extract files
+        i = brace_pos + 1
+        while i < len(response):
+            # Skip whitespace
+            while i < len(response) and response[i].isspace():
+                i += 1
+            
+            if i >= len(response):
+                break
+                
+            # Check for end of files object
+            if response[i] == '}':
+                break
+            
+            # Look for filename in quotes
+            if response[i] == '"':
+                # Extract filename
+                i += 1  # Skip opening quote
+                filename_start = i
+                while i < len(response) and response[i] != '"':
+                    if response[i] == '\\':
+                        i += 2  # Skip escaped character
+                    else:
+                        i += 1
+                
+                if i >= len(response):
+                    break
+                    
+                filename = response[filename_start:i]
+                i += 1  # Skip closing quote
+                
+                # Skip whitespace and colon
+                while i < len(response) and (response[i].isspace() or response[i] == ':'):
+                    i += 1
+                
+                # Look for content in quotes
+                if i < len(response) and response[i] == '"':
+                    i += 1  # Skip opening quote
+                    content_start = i
+                    content_chars = []
+                    
+                    # Extract content, handling escape sequences
+                    while i < len(response):
+                        if response[i] == '\\' and i + 1 < len(response):
+                            # Handle escape sequence
+                            next_char = response[i + 1]
+                            if next_char == 'n':
+                                content_chars.append('\n')
+                            elif next_char == 't':
+                                content_chars.append('\t')
+                            elif next_char == 'r':
+                                content_chars.append('\r')
+                            elif next_char == '"':
+                                content_chars.append('"')
+                            elif next_char == '\\':
+                                content_chars.append('\\')
+                            else:
+                                content_chars.append(next_char)
+                            i += 2
+                        elif response[i] == '"':
+                            # End of string
+                            break
+                        else:
+                            content_chars.append(response[i])
+                            i += 1
+                    
+                    if filename.endswith(('.go', '.py', '.js', '.ts', '.rs', '.java', '.cpp', '.h')):
+                        content = ''.join(content_chars)
+                        files[filename] = content
+                    
+                    i += 1  # Skip closing quote
+            
+            # Skip to next comma or end
+            while i < len(response) and response[i] not in ',}':
+                i += 1
+            
+            if i < len(response) and response[i] == ',':
+                i += 1
+        
+        return files if files else None
+
 
 # Convenience function for easy import
 def parse_llm_response(response: str, expected_language: str = 'go') -> Dict[str, str]:
     """Parse LLM response using the advanced parser"""
     parser = LLMResponseParser()
-    return parser.parse_solution_response(response, expected_language) 
+    return parser.parse(response, expected_language) 

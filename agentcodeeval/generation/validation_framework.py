@@ -50,6 +50,17 @@ class TestSuite:
     integration_tests: List[Dict[str, Any]]
     performance_tests: List[Dict[str, Any]]
     security_tests: List[Dict[str, Any]]
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert TestSuite to dictionary for JSON serialization"""
+        return {
+            'scenario_id': self.scenario_id,
+            'compilation_tests': self.compilation_tests,
+            'unit_tests': self.unit_tests,
+            'integration_tests': self.integration_tests,
+            'performance_tests': self.performance_tests,
+            'security_tests': self.security_tests
+        }
 
 
 class AutomatedValidator:

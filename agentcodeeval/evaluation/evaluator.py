@@ -321,87 +321,224 @@ class AgentEvaluator:
     def save_results(self, results: Dict[str, List[ModelEvaluationResult]], 
                     summaries: Dict[str, EvaluationSummary], 
                     output_file: Path):
-        """Save evaluation results to file"""
+        """Save comprehensive evaluation results to file"""
+        
+        # Calculate additional analytics
+        all_scenarios = []
+        for model_results in results.values():
+            all_scenarios.extend([r.scenario_id for r in model_results])
+        unique_scenarios = list(set(all_scenarios))
+        
+        # Analyze category distribution
+        category_distribution = {}
+        difficulty_distribution = {}
+        for model_results in results.values():
+            for result in model_results:
+                cat = result.task_category
+                diff = result.difficulty
+                category_distribution[cat] = category_distribution.get(cat, 0) + 1
+                difficulty_distribution[diff] = difficulty_distribution.get(diff, 0) + 1
+        
+        # Calculate cross-model comparison if multiple models
+        model_comparison = {}
+        if len(results) > 1:
+            models = list(results.keys())
+            for i, model1 in enumerate(models):
+                for j, model2 in enumerate(models[i+1:], i+1):
+                    if model1 in summaries and model2 in summaries:
+                        comparison_key = f"{model1}_vs_{model2}"
+                        model_comparison[comparison_key] = {
+                            'total_score_diff': summaries[model1].avg_total_score - summaries[model2].avg_total_score,
+                            'functional_score_diff': summaries[model1].avg_functional_score - summaries[model2].avg_functional_score,
+                            'agent_metrics_diff': summaries[model1].avg_agent_metrics_score - summaries[model2].avg_agent_metrics_score,
+                            'quality_score_diff': summaries[model1].avg_quality_score - summaries[model2].avg_quality_score,
+                            'generation_time_diff': summaries[model1].avg_generation_time - summaries[model2].avg_generation_time
+                        }
         
         output_data = {
             'metadata': {
                 'evaluation_timestamp': datetime.now().isoformat(),
                 'framework_version': '1.0.0',
+                'config_file': str(self.config.config_path) if hasattr(self.config, 'config_path') else 'default',
                 'total_models': len(results),
-                'total_scenarios': sum(len(model_results) for model_results in results.values())
+                'total_scenarios': sum(len(model_results) for model_results in results.values()),
+                'unique_scenarios': len(unique_scenarios),
+                'models_evaluated': list(results.keys()),
+                'evaluation_scope': {
+                    'category_distribution': category_distribution,
+                    'difficulty_distribution': difficulty_distribution,
+                    'unique_scenario_ids': unique_scenarios
+                },
+                'system_info': {
+                    'total_evaluation_time': sum(s.total_evaluation_time for s in summaries.values()),
+                    'avg_parsing_success_rate': sum(s.parsing_success_rate for s in summaries.values()) / len(summaries) if summaries else 0
+                }
+            },
+            'configuration': {
+                'api_settings': {
+                    'max_requests_per_minute': getattr(self.config.api, 'max_requests_per_minute', 'N/A'),
+                    'default_models': {
+                        'openai': getattr(self.config.api, 'default_model_openai', 'N/A'),
+                        'anthropic': getattr(self.config.api, 'default_model_anthropic', 'N/A'),
+                        'google': getattr(self.config.api, 'default_model_google', 'N/A')
+                    }
+                },
+                'evaluation_weights': {
+                    'functional': getattr(self.config.evaluation.metric_weights, 'functional_correctness', 0.4),
+                    'agent_metrics': getattr(self.config.evaluation.metric_weights, 'agent_specific_metrics', 0.3),
+                    'quality': getattr(self.config.evaluation.metric_weights, 'code_quality', 0.2),
+                    'style': getattr(self.config.evaluation.metric_weights, 'style_and_practices', 0.1)
+                },
+                'benchmark_settings': {
+                    'total_instances': getattr(self.config.benchmark, 'total_instances', 'N/A'),
+                    'min_information_coverage': getattr(self.config.benchmark, 'min_information_coverage', 'N/A')
+                }
+            },
+            'analysis': {
+                'model_comparison': model_comparison,
+                'performance_ranking': sorted(
+                    [(model, summary.avg_total_score) for model, summary in summaries.items()],
+                    key=lambda x: x[1], reverse=True
+                ),
+                'category_performance': {
+                    model: summary.category_results for model, summary in summaries.items()
+                }
             },
             'summaries': {model: asdict(summary) for model, summary in summaries.items()},
             'detailed_results': {
                 model: [asdict(result) for result in model_results] 
                 for model, model_results in results.items()
+            },
+            'scenario_lookup': {
+                scenario_id: {
+                    'models_evaluated': [
+                        model for model, model_results in results.items()
+                        if any(r.scenario_id == scenario_id for r in model_results)
+                    ],
+                    'results': {
+                        model: next(
+                            (asdict(r) for r in model_results if r.scenario_id == scenario_id), 
+                            None
+                        )
+                        for model, model_results in results.items()
+                    }
+                }
+                for scenario_id in unique_scenarios
             }
         }
         
         with open(output_file, 'w') as f:
             json.dump(output_data, f, indent=2)
         
+        # Print comprehensive save summary
         console.print(f"💾 Results saved to: {output_file}")
+        console.print(f"📊 Saved {len(results)} models × {len(unique_scenarios)} scenarios = {sum(len(model_results) for model_results in results.values())} total evaluations")
+        console.print(f"📈 File includes: summaries, detailed results, cross-model analysis, configuration, and scenario lookup")
+        console.print(f"💡 Use this file for research analysis, visualization, and detailed performance investigation")
 
     # Helper methods
     
     async def _generate_solution(self, model_name: str, scenario: Dict[str, Any]) -> Optional[Dict[str, str]]:
-        """Generate solution using specified model"""
+        """Generate solution using specified model with enhanced prompts and retry logic"""
         
-        # Create solution prompt
-        solution_prompt = f"""You are an expert Go software engineer working on: {scenario.get('title', 'Development Task')}
+        # Create enhanced solution prompt (proven to work in testing)
+        solution_prompt = f"""You are an expert Go software engineer. Your task is to provide a complete, working solution.
 
-**TASK DESCRIPTION**: {scenario.get('description', '')}
+**TASK**: {scenario.get('title', 'Development Task')}
+
+**DESCRIPTION**: {scenario.get('description', '')}
 
 **REQUIREMENTS**: 
 {scenario.get('task_prompt', '')}
 
 **CONTEXT FILES**: {', '.join(scenario.get('context_files', []))}
 
-Please provide your response in EXACTLY this JSON format:
+**CRITICAL INSTRUCTIONS**:
+1. You MUST respond with valid JSON in the exact format shown below
+2. Each file MUST contain complete, syntactically correct Go code
+3. Do NOT truncate your response - provide the complete solution
+4. Use proper Go imports, error handling, and best practices
 
+**REQUIRED RESPONSE FORMAT**:
 ```json
 {{
-    "approach": "Brief explanation of your solution strategy",
+    "approach": "Your solution strategy (keep under 200 words)",
     "files": {{
-        "main.go": "package main\\n\\nimport \\"fmt\\"\\n\\nfunc main() {{\\n    // Your implementation here\\n}}",
-        "handler.go": "package main\\n\\n// Additional file if needed"
+        "main.go": "package main\\n\\nimport \\"fmt\\"\\n\\nfunc main() {{\\n    fmt.Println(\\"Hello\\")\\n}}",
+        "utils.go": "package main\\n\\n// Additional file content if needed"
     }},
-    "explanation": "Key implementation details and design decisions"
+    "explanation": "Implementation details (keep under 300 words)"
 }}
 ```
 
-**REQUIREMENTS**:
-1. Response MUST be valid JSON with "files" key
-2. Each file MUST be complete, syntactically correct Go code
-3. Use proper Go syntax, imports, and error handling
-4. Follow Go best practices and naming conventions
-5. Address ALL requirements in the task prompt
-6. Make code production-ready and well-documented
-"""
+**VALIDATION CHECKLIST**:
+- ✅ Response is valid JSON wrapped in ```json blocks
+- ✅ All strings are properly escaped (\\n for newlines, \\" for quotes)
+- ✅ Each file contains complete Go code with package declaration
+- ✅ Code compiles and addresses all requirements
+- ✅ Response is complete (not truncated)
 
-        try:
-            # Map model names to our generator keys
-            model_key_mapping = {
-                'openai': 'openai',
-                'claude': 'anthropic',
-                'gemini': 'google',
-                'openai-o3': 'openai',
-                'claude-sonnet-4': 'anthropic',
-                'gemini-2.5-pro': 'google'
-            }
-            
-            model_key = model_key_mapping.get(model_name.lower(), 'openai')
-            
-            response = await self.llm_generator.generate_with_model(model_key, solution_prompt)
-            
-            # Parse the response using our enhanced parser
-            solution_code = parse_llm_response(response, expected_language='go')
-            
-            return solution_code
-            
-        except Exception as e:
-            logger.error(f"Solution generation failed for {model_name}: {e}")
-            return None
+Generate your response now:"""
+
+        # Map model names to our generator keys
+        model_key_mapping = {
+            'openai': 'openai',
+            'claude': 'anthropic',
+            'gemini': 'google',
+            'openai-o3': 'openai',
+            'claude-sonnet-4': 'anthropic',
+            'gemini-2.5-pro': 'google'
+        }
+        
+        model_key = model_key_mapping.get(model_name.lower(), 'openai')
+        
+        # Retry logic for empty responses
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                response = await self.llm_generator.generate_with_model(model_key, solution_prompt)
+                
+                # Validate response before parsing
+                if not response or len(response.strip()) < 50:
+                    logger.warning(f"Empty/tiny response from {model_name} (attempt {attempt + 1}/{max_retries}): {len(response)} chars")
+                    if attempt < max_retries - 1:
+                        continue  # Retry
+                    else:
+                        logger.error(f"All retry attempts failed for {model_name}")
+                        return None
+                
+                # Parse the response using our enhanced parser
+                solution_code = parse_llm_response(response, expected_language='go')
+                
+                # Validate parsed result
+                if not solution_code:
+                    logger.warning(f"Failed to parse response from {model_name} (attempt {attempt + 1}/{max_retries})")
+                    if attempt < max_retries - 1:
+                        continue  # Retry
+                    else:
+                        return None
+                
+                # Check if solution has reasonable content
+                total_content = sum(len(code) for code in solution_code.values())
+                if total_content < 100:
+                    logger.warning(f"Suspiciously short solution from {model_name} (attempt {attempt + 1}/{max_retries}): {total_content} chars")
+                    if attempt < max_retries - 1:
+                        continue  # Retry
+                    else:
+                        return solution_code  # Accept even short solutions on final attempt
+                
+                # Success!
+                logger.info(f"✅ Successfully generated solution from {model_name}: {len(solution_code)} files, {total_content} chars")
+                return solution_code
+                
+            except Exception as e:
+                logger.error(f"Solution generation error for {model_name} (attempt {attempt + 1}/{max_retries}): {e}")
+                if attempt < max_retries - 1:
+                    continue  # Retry
+                else:
+                    return None
+        
+        return None
 
     def _filter_scenarios(self, scenarios: List[Dict[str, Any]], 
                          task_categories: Optional[List[str]], 

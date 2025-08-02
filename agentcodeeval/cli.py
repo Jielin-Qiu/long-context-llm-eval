@@ -114,9 +114,9 @@ def status(config_path):
         
         # Directory status
         directories = [
-            ("Cache Directory", config.data.cache_dir),
+    
             ("Output Directory", config.data.output_dir), 
-            ("Benchmark Directory", config.data.benchmark_dir)
+            ("Generated Directory", config.data.generated_dir)
         ]
         
         for name, path in directories:
@@ -152,12 +152,17 @@ def status(config_path):
               help='Which implementation phase to run')
 @click.option('--dry-run', is_flag=True, help='Show what would be done without executing')
 @click.option('--force', is_flag=True, help='Force regeneration of already completed projects')
-def generate(config_path, phase, dry_run, force):
+@click.option('--max-concurrent', '-j', type=int, default=3, 
+              help='Maximum concurrent operations (default: 3, recommended: 3-10)')
+def generate(config_path, phase, dry_run, force, max_concurrent):
     """Generate AgentCodeEval benchmark instances"""
     console.print(Panel.fit(f"🏗️  AgentCodeEval Generation - Phase {phase}", style="bold green"))
     
     if dry_run:
         console.print("🔍 DRY RUN MODE - No actual generation will occur", style="yellow")
+    
+    if max_concurrent > 1:
+        console.print(f"🚀 Parallel mode: {max_concurrent} concurrent operations", style="bold blue")
     
     try:
         config = Config(config_path=config_path)
@@ -175,7 +180,7 @@ def generate(config_path, phase, dry_run, force):
             if not dry_run:
                 import asyncio
                 from .generation.synthetic_generator import SyntheticProjectGenerator, ProjectDomain, ProjectComplexity
-                asyncio.run(run_phase_1_generation(config))
+                asyncio.run(run_phase_1_generation(config, max_concurrent))
             else:
                 console.print("  • Generate synthetic multi-file projects")
                 console.print("  • 10 domains × 4 complexity levels × 6 languages")
@@ -183,52 +188,41 @@ def generate(config_path, phase, dry_run, force):
                 console.print(f"  • Target: 1,200 synthetic projects")
                 
         if phase == '2' or phase == 'all':
-            console.print("💻 Phase 2: Synthetic Codebase Generation", style="bold")
+            console.print("🎯 Phase 2: Synthetic Codebase Generation", style="bold")
             if not dry_run:
                 import asyncio
-                asyncio.run(run_phase_2_generation(config, force_regenerate=force))
+                asyncio.run(run_phase_2_generation(config, force, max_concurrent))
             else:
-                console.print("  • Generate actual code files from project specifications")
-                console.print("  • Architecture-first implementation approach")
-                console.print("  • Production quality: dependencies, tests, docs")
-                console.print("  • Cross-file consistency and proper imports")
-                if force:
-                    console.print("  • Force mode: Regenerate all projects (--force)")
-                else:
-                    console.print("  • Smart resume: Skip already completed projects")
+                console.print("  • Generate actual code files from specifications")
+                console.print("  • Multi-file projects with realistic complexity")
+                console.print("  • Tests, documentation, and error handling")
                 
         if phase == '3' or phase == 'all':
-            console.print("🎮 Phase 3: Agent Evaluation Scenario Creation", style="bold") 
+            console.print("🎯 Phase 3: Agent Evaluation Scenario Creation", style="bold")
             if not dry_run:
                 import asyncio
-                asyncio.run(run_phase_3_generation(config, force_regenerate=force))
+                asyncio.run(run_phase_3_generation(config, force, max_concurrent))
             else:
-                console.print("  • Convert synthetic projects to evaluation scenarios")
-                console.print("  • 8 task categories: debug, refactor, feature-add, test-write, etc.")
-                console.print("  • Progressive complexity: 10K-500K token contexts")
-                console.print(f"  • Target: 10 instances per project")
-                if force:
-                    console.print("  • Force mode: Regenerate all scenarios (--force)")
-                else:
-                    console.print("  • Smart resume: Skip already completed scenarios")
+                console.print("  • Create evaluation scenarios from generated code")
+                console.print("  • 8 task categories × varying difficulties")
+                console.print("  • Context-rich scenarios for agent testing")
                 
         if phase == '4' or phase == 'all':
-            console.print("📈 Phase 4: Quality Validation & Reference Solutions", style="bold")
+            console.print("🎯 Phase 4: Automated Test-Driven Validation", style="bold")
             if not dry_run:
                 import asyncio
-                asyncio.run(run_phase_4_generation(config, force))
+                asyncio.run(run_phase_4_generation(config, force, max_concurrent))
             else:
-                console.print("  • Generate automated test suites for each scenario (no LLM bias)")
+                console.print("  • Generate automated test suites")
+                console.print("  • Compilation, unit tests, integration tests")
+                console.print("  • 6 novel agent-specific metrics (ACS, DTA, MMR, CFRD, IDC, ICU)")
                 console.print("  • Implement 6 novel agent-specific metrics (ACS, DTA, MMR, CFRD, IDC, ICU)")
-                console.print("  • Create functional correctness tests (compilation, unit, integration)")
-                console.print("  • Automated code quality and security analysis")
-                console.print("  • Evaluation weights: Functional (40%) + Agent Metrics (30%) + Quality (20%) + Style (10%)")
-                if force:
-                    console.print("  • Force mode: Regenerate all test suites")
-                else:
-                    console.print("  • Smart resume: Skip already completed test suites")
-        
-        console.print("🎉 Generation phase complete!", style="bold green")
+                console.print("  • Security analysis and code quality validation")
+                
+        console.print("\n✅ Generation complete!", style="bold green")
+        console.print("Next steps:")
+        console.print("  • Run evaluation: agentcodeeval evaluate")
+        console.print("  • Check status: agentcodeeval status")
         
     except Exception as e:
         console.print(f"❌ Generation failed: {e}", style="bold red")
@@ -241,20 +235,14 @@ def generate(config_path, phase, dry_run, force):
 @click.option('--task-category', '-t', multiple=True, help='Task category to evaluate')
 @click.option('--difficulty', '-d', type=click.Choice(['easy', 'medium', 'hard', 'expert']),
               help='Difficulty level to evaluate')
-@click.option('--output-file', '-o', type=click.Path(), help='Output file for results')
-def evaluate(config_path, model, task_category, difficulty, output_file):
+@click.option('--output-file', '-o', type=click.Path(), help='Output file for results (auto-generated if not specified)')
+@click.option('--no-save', is_flag=True, help='Skip saving results to file (display only)')
+def evaluate(config_path, model, task_category, difficulty, output_file, no_save):
     """Evaluate models on AgentCodeEval benchmark"""
     console.print(Panel.fit("🧪 AgentCodeEval Evaluation", style="bold purple"))
     
     try:
         config = Config(config_path=config_path)
-        
-        # Show evaluation parameters
-        console.print("📋 Evaluation Parameters:", style="bold")
-        console.print(f"  • Models: {list(model) if model else 'All available'}")
-        console.print(f"  • Categories: {list(task_category) if task_category else 'All categories'}")
-        console.print(f"  • Difficulty: {difficulty if difficulty else 'All levels'}")
-        console.print(f"  • Output: {output_file if output_file else 'Standard output'}")
         
         from .evaluation.evaluator import run_evaluation
         evaluation_data = run_evaluation(config, model, task_category, difficulty)
@@ -269,13 +257,56 @@ def evaluate(config_path, model, task_category, difficulty, output_file):
         results = evaluation_data['results']
         summaries = evaluation_data['summaries']
         
+        # Auto-generate output filename if not provided
+        if not output_file and not no_save:
+            from datetime import datetime
+            from pathlib import Path
+            
+            # Build descriptive filename
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            
+            # Model names part
+            model_list = list(model) if model else ['all-models']
+            models_part = "_".join([m.replace('-', '').replace('_', '').lower() for m in model_list])
+            if len(models_part) > 30:  # Limit length
+                models_part = f"{len(model_list)}models"
+            
+            # Category part
+            if task_category:
+                categories_part = "_".join([c.replace('_', '') for c in task_category])
+                if len(categories_part) > 20:
+                    categories_part = f"{len(task_category)}cats"
+            else:
+                categories_part = "allcats"
+            
+            # Difficulty part
+            difficulty_part = difficulty if difficulty else "alldiff"
+            
+            # Construct filename
+            output_file = f"{models_part}_{categories_part}_{difficulty_part}_{timestamp}_evaluation_results.json"
+            
+            # Ensure results directory exists
+            results_dir = Path("evaluation_results")
+            results_dir.mkdir(exist_ok=True)
+            output_file = results_dir / output_file
+        
+        # Show evaluation parameters (including auto-generated filename)
+        console.print("📋 Evaluation Parameters:", style="bold")
+        console.print(f"  • Models: {list(model) if model else 'All available'}")
+        console.print(f"  • Categories: {list(task_category) if task_category else 'All categories'}")
+        console.print(f"  • Difficulty: {difficulty if difficulty else 'All levels'}")
+        if no_save:
+            console.print(f"  • Output: Display only (saving disabled)")
+        else:
+            console.print(f"  • Output: {output_file}")
+        
         # Display formatted results
         if summaries:
             console.print("\n📊 Evaluation Completed!", style="bold green")
             evaluator.display_results(summaries)
             
-            # Save results if output file specified
-            if output_file:
+            # Save comprehensive results (unless explicitly disabled)
+            if not no_save:
                 from pathlib import Path
                 output_path = Path(output_file)
                 evaluator.save_results(results, summaries, output_path)
@@ -296,9 +327,11 @@ def version():
     console.print("\nFor more information: https://github.com/AgentCodeEval/AgentCodeEval")
 
 
-async def run_phase_1_generation(config):
+async def run_phase_1_generation(config, max_concurrent=3):
     """Run Phase 1: Synthetic Project Generation"""
     from .generation.synthetic_generator import SyntheticProjectGenerator, ProjectDomain, ProjectComplexity
+    import asyncio
+    from asyncio import Semaphore
     
     console.print("\n🎯 [bold]Synthetic Project Generation Pipeline[/bold]")
     console.print("=" * 60)
@@ -312,15 +345,145 @@ async def run_phase_1_generation(config):
     console.print(f"📊 Target: {len(languages)} languages × {projects_per_language} projects = {len(languages) * projects_per_language} total")
     console.print(f"🌐 Languages: {', '.join(languages)}")
     
-    domains = list(ProjectDomain)[:6]  # Use first 6 domains for balanced distribution
+    if max_concurrent > 1:
+        console.print(f"🚀 [bold blue]Parallel mode: {max_concurrent} concurrent specifications[/bold blue]")
+    
+    console.print("🏗️ Generating project specifications...")
+    
+    # Get available domains and complexities
+    domains = list(ProjectDomain)
     complexities = list(ProjectComplexity)
+    
+    # Prepare project specification tasks
+    spec_tasks = []
+    for language in languages:
+        for i in range(projects_per_language):
+            # Distribute domains and complexities evenly
+            domain = domains[i % len(domains)]
+            complexity = complexities[i % len(complexities)]
+            
+            spec_tasks.append({
+                'language': language,
+                'domain': domain,
+                'complexity': complexity,
+                'index': i
+            })
+    
+    console.print(f"🎯 Generating {len(spec_tasks)} project specifications...")
+    
+    # Semaphore for parallel generation
+    semaphore = Semaphore(max_concurrent)
+    
+    # Statistics tracking
+    projects_generated = 0
+    projects_failed = 0
+    
+    async def generate_single_spec(task_info, task_index):
+        """Generate a single project specification"""
+        async with semaphore:
+            language = task_info['language']
+            domain = task_info['domain']
+            complexity = task_info['complexity']
+            
+            try:
+                console.print(f"🔨 [bold cyan]Generating {task_index}/{len(spec_tasks)}: {language} {domain.value} ({complexity.value})[/bold cyan]")
+                
+                # Start timing
+                import time
+                start_time = time.time()
+                
+                # Generate project specification
+                spec = await generator.generate_project_specification(domain, complexity, language)
+                
+                generation_time = time.time() - start_time
+                
+                # Save specification to project directory
+                project_name = f"{language}_{domain.value}_project"
+                
+                # Create project directory and save specification
+                project_dir = generator.generated_dir / project_name
+                project_dir.mkdir(exist_ok=True)
+                
+                # Save specification metadata
+                metadata = {
+                    "specification": spec.to_dict(),
+                    "generated_timestamp": time.time(),
+                    "phase_1_complete": True
+                }
+                
+                with open(project_dir / "project_metadata.json", 'w') as f:
+                    import json
+                    json.dump(metadata, f, indent=2)
+                
+                console.print(f"   ✅ [green]Generated {project_name}![/green] {spec.target_file_count} files, ~{spec.target_token_count:,} tokens ({generation_time:.1f}s)")
+                
+                return {
+                    'success': True,
+                    'project_name': project_name,
+                    'language': language,
+                    'domain': domain.value,
+                    'complexity': complexity.value
+                }
+                
+            except Exception as e:
+                console.print(f"   ❌ [red]Failed {language} {domain.value}: {str(e)}[/red]")
+                return {
+                    'success': False,
+                    'error': str(e),
+                    'language': language,
+                    'domain': domain.value
+                }
+    
+    # Execute all specification generation tasks in parallel
+    console.print(f"\n🚀 [bold]Starting parallel specification generation for {len(spec_tasks)} projects...[/bold]")
+    
+    # Create asyncio tasks
+    tasks = []
+    for i, task_info in enumerate(spec_tasks, 1):
+        task = generate_single_spec(task_info, i)
+        tasks.append(task)
+    
+    # Wait for all tasks to complete
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    
+    # Process results
+    successful_projects = []
+    failed_projects = []
+    
+    for result in results:
+        if isinstance(result, Exception):
+            failed_projects.append(f"Exception: {str(result)}")
+            projects_failed += 1
+        elif result and result['success']:
+            successful_projects.append(result)
+            projects_generated += 1
+        else:
+            failed_projects.append(f"{result['language']} {result['domain']}" if result else "Unknown project")
+            projects_failed += 1
+    
+    # Final summary
+    console.print(f"\n📊 [bold]Phase 1 Summary:[/bold]")
+    console.print(f"   ✅ Generated: {projects_generated} project specifications")
+    console.print(f"   ❌ Failed: {projects_failed} specifications")
+    console.print(f"   📁 Specifications saved to: {generator.generated_dir}")
+    
+    if failed_projects:
+        console.print(f"\n⚠️  [yellow]Failed specifications:[/yellow]")
+        for failed in failed_projects[:5]:  # Show first 5 failures
+            console.print(f"   • {failed}")
+        if len(failed_projects) > 5:
+            console.print(f"   • ... and {len(failed_projects) - 5} more")
+    
+    console.print(f"\n💡 [dim]Next: Run Phase 2 to generate actual code files[/dim]")
 
 
-async def run_phase_2_generation(config, force_regenerate=False):
-    """Run Phase 2: Synthetic Codebase Generation"""
+async def run_phase_2_generation(config, force_regenerate=False, max_concurrent=3):
+    """Run Phase 2: Synthetic Codebase Generation with parallel processing"""
     from .generation.synthetic_generator import SyntheticProjectGenerator
     from pathlib import Path
     import json
+    import asyncio
+    from asyncio import Semaphore
     
     console.print("\n💻 [bold]Synthetic Codebase Generation Pipeline[/bold]")
     console.print("=" * 60)
@@ -338,14 +501,16 @@ async def run_phase_2_generation(config, force_regenerate=False):
     else:
         console.print("🧠 [cyan]Smart resume: Checking for completed projects...[/cyan]")
     
+    if max_concurrent > 1:
+        console.print(f"🚀 [bold blue]Parallel mode: {max_concurrent} concurrent projects[/bold blue]")
+    
     console.print("🏭 Generating production-quality code with 3 Elite Models...")
     
-    total_files_generated = 0
-    total_lines_generated = 0
-    projects_completed = 0
+    # Prepare projects for processing
+    projects_to_process = []
     projects_skipped = 0
     
-    for i, project_dir in enumerate(project_dirs, 1):
+    for project_dir in project_dirs:
         metadata_file = project_dir / "project_metadata.json"
         
         if not metadata_file.exists():
@@ -356,9 +521,6 @@ async def run_phase_2_generation(config, force_regenerate=False):
         with open(metadata_file, 'r') as f:
             project_data = json.load(f)
         
-        spec = project_data['specification']
-        console.print(f"\n🔨 [bold cyan]Project {i}/{len(project_dirs)}: {spec['name']} ({spec['language']})[/bold cyan]")
-        
         # Check if project is already completed (unless force regeneration)
         if not force_regenerate and 'generated_stats' in project_data:
             stats = project_data['generated_stats']
@@ -367,93 +529,153 @@ async def run_phase_2_generation(config, force_regenerate=False):
             all_files_exist = all((project_dir / f['path']).exists() for f in expected_files)
             
             if all_files_exist and stats.get('files_count', 0) > 0:
-                console.print(f"   ✅ [green]Already completed![/green] {stats['files_count']} files, {stats['lines_count']:,} lines")
-                console.print(f"   ⏭️  [dim]Skipping (use --force to regenerate)[/dim]")
+                console.print(f"✅ [green]{project_data['specification']['name']} ({project_data['specification']['language']}) - Already completed![/green]")
                 projects_skipped += 1
                 continue
-            else:
-                console.print(f"   ⚠️  [yellow]Incomplete - some files missing, regenerating...[/yellow]")
         
-        # Generate the actual code files
-        try:
-            # Extract target metrics
-            target_files = spec.get('target_file_count', 10)
-            target_tokens = spec.get('target_token_count', 20000)
+        projects_to_process.append((project_dir, project_data))
+    
+    if not projects_to_process:
+        console.print("✅ All projects already completed! Use --force to regenerate.")
+        return
+    
+    console.print(f"🎯 Processing {len(projects_to_process)} projects ({projects_skipped} skipped)")
+    
+    # Semaphore to limit concurrent project generation
+    semaphore = Semaphore(max_concurrent)
+    
+    # Statistics tracking
+    total_files_generated = 0
+    total_lines_generated = 0
+    projects_completed = 0
+    
+    async def generate_single_project(project_info, project_index):
+        """Generate a single project with semaphore control"""
+        project_dir, project_data = project_info
+        
+        async with semaphore:  # Acquire semaphore slot
+            spec = project_data['specification']
+            project_name = f"{spec['name']} ({spec['language']})"
             
-            console.print(f"   🎯 Target: {target_files} files, ~{target_tokens:,} tokens")
-            console.print("   🤖 3 Elite Models working...")
-            
-            # Start timing
-            import time
-            start_time = time.time()
-            
-            with console.status(f"[bold green]🏭 Generating code files for {spec['name']}..."):
+            try:
+                console.print(f"🔨 [bold cyan]Starting {project_index}/{len(projects_to_process)}: {project_name}[/bold cyan]")
+                
+                # Extract target metrics
+                target_files = spec.get('target_file_count', 10)
+                target_tokens = spec.get('target_token_count', 20000)
+                
+                console.print(f"   🎯 Target: {target_files} files, ~{target_tokens:,} tokens")
+                console.print("   🤖 3 Elite Models working...")
+                
+                # Start timing
+                import time
+                start_time = time.time()
+                
+                # Generate project files
                 project_files = await generator.generate_project_files(spec, target_files, target_tokens)
-            
-            generation_time = time.time() - start_time
-            console.print(f"   ⏱️  Generated in {generation_time:.1f}s")
-            
-            # Save generated files to project directory with progress
-            files_created = 0
-            lines_created = 0
-            
-            console.print(f"   💾 Saving {len(project_files)} files...")
-            for j, file_data in enumerate(project_files, 1):
-                file_path = project_dir / file_data['path']
-                file_path.parent.mkdir(parents=True, exist_ok=True)
                 
-                with open(file_path, 'w', encoding='utf-8') as f:
-                    f.write(file_data['content'])
+                generation_time = time.time() - start_time
+                console.print(f"   ⏱️  Generated in {generation_time:.1f}s")
                 
-                file_lines = len(file_data['content'].splitlines())
-                files_created += 1
-                lines_created += file_lines
+                # Save generated files to project directory
+                files_created = 0
+                lines_created = 0
                 
-                # Show progress for larger projects
-                if len(project_files) > 5 and j % max(1, len(project_files) // 5) == 0:
-                    console.print(f"      📄 Saved {j}/{len(project_files)} files...")
-            
-            # Update project metadata with generated files
-            project_data['files'] = [{'path': f['path'], 'type': f['type']} for f in project_files]
-            project_data['generated_stats'] = {
-                'files_count': files_created,
-                'lines_count': lines_created,
-                'characters_count': sum(len(f['content']) for f in project_files),
-                'generation_time_seconds': round(generation_time, 2)
-            }
-            
-            with open(metadata_file, 'w') as f:
-                json.dump(project_data, f, indent=2)
-            
-            console.print(f"   ✅ [bold green]Success![/bold green] {files_created} files, {lines_created:,} lines, {sum(len(f['content']) for f in project_files):,} chars")
-            
-            total_files_generated += files_created
-            total_lines_generated += lines_created
+                console.print(f"   💾 Saving {len(project_files)} files...")
+                for file_data in project_files:
+                    file_path = project_dir / file_data['path']
+                    file_path.parent.mkdir(parents=True, exist_ok=True)
+                    
+                    with open(file_path, 'w', encoding='utf-8') as f:
+                        f.write(file_data['content'])
+                    
+                    file_lines = len(file_data['content'].splitlines())
+                    files_created += 1
+                    lines_created += file_lines
+                
+                # Update project metadata with generated files
+                project_data['files'] = [{'path': f['path'], 'type': f['type']} for f in project_files]
+                project_data['generated_stats'] = {
+                    'files_count': files_created,
+                    'lines_count': lines_created,
+                    'generation_time': generation_time,
+                    'timestamp': time.time()
+                }
+                
+                # Save updated metadata
+                with open(project_dir / "project_metadata.json", 'w') as f:
+                    json.dump(project_data, f, indent=2)
+                
+                console.print(f"   ✅ [green]Completed {project_name}![/green] {files_created} files, {lines_created:,} lines")
+                
+                return {
+                    'success': True,
+                    'files_created': files_created,
+                    'lines_created': lines_created,
+                    'project_name': project_name
+                }
+                
+            except Exception as e:
+                console.print(f"   ❌ [red]Failed {project_name}: {str(e)}[/red]")
+                return {
+                    'success': False,
+                    'error': str(e),
+                    'project_name': project_name
+                }
+    
+    # Execute all projects in parallel with progress tracking
+    console.print(f"\n🚀 [bold]Starting parallel generation of {len(projects_to_process)} projects...[/bold]")
+    
+    # Create tasks for all projects
+    tasks = []
+    for i, project_info in enumerate(projects_to_process, 1):
+        task = generate_single_project(project_info, i)
+        tasks.append(task)
+    
+    # Wait for all projects to complete
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    
+    # Process results
+    successful_projects = []
+    failed_projects = []
+    
+    for result in results:
+        if isinstance(result, Exception):
+            failed_projects.append(f"Exception: {str(result)}")
+        elif result and result['success']:
+            successful_projects.append(result)
+            total_files_generated += result['files_created']
+            total_lines_generated += result['lines_created']
             projects_completed += 1
-            
-        except Exception as e:
-            console.print(f"   ❌ [bold red]Failed to generate {spec['name']}: {e}[/bold red]")
-            import traceback
-            console.print(f"   🔍 Debug: {traceback.format_exc()}")
-            continue
+        else:
+            failed_projects.append(result['project_name'] if result else "Unknown project")
     
-    console.print(f"\n🎉 [bold green]Phase 2 Complete![/bold green]")
-    console.print(f"   📊 Generated: {total_files_generated} files across {projects_completed} projects")
-    console.print(f"   ⏭️  Skipped: {projects_skipped} already completed projects")
-    console.print(f"   📝 Total lines: {total_lines_generated:,}")
-    console.print(f"   📁 Location: {generated_dir}")
-    console.print(f"   💾 Production-quality codebases with tests & docs")
+    # Final summary
+    console.print(f"\n📊 [bold]Phase 2 Summary:[/bold]")
+    console.print(f"   ✅ Completed: {projects_completed} projects")
+    console.print(f"   ⚠️  Skipped: {projects_skipped} projects (already done)")
+    console.print(f"   ❌ Failed: {len(failed_projects)} projects")
+    console.print(f"   📄 Total files generated: {total_files_generated:,}")
+    console.print(f"   📝 Total lines generated: {total_lines_generated:,}")
     
-    if projects_skipped > 0 and not force_regenerate:
-        console.print(f"\n💡 [dim]Tip: Use --force to regenerate all projects[/dim]")
+    if failed_projects:
+        console.print(f"\n⚠️  [yellow]Failed projects:[/yellow]")
+        for failed in failed_projects[:5]:  # Show first 5 failures
+            console.print(f"   • {failed}")
+        if len(failed_projects) > 5:
+            console.print(f"   • ... and {len(failed_projects) - 5} more")
+    
+    console.print(f"\n💡 [dim]Tip: Use --force to regenerate all projects[/dim]")
 
 
-async def run_phase_3_generation(config, force_regenerate=False):
-    """Run Phase 3: Agent Evaluation Scenario Creation"""
+async def run_phase_3_generation(config, force_regenerate=False, max_concurrent=3):
+    """Run Phase 3: Agent Evaluation Scenario Creation with parallel processing"""
     from .generation.scenario_generator import ScenarioGenerator
     from .core.task import TaskCategory
     from pathlib import Path
     import json
+    import asyncio
+    from asyncio import Semaphore
     
     console.print("\n🎮 [bold]Agent Evaluation Scenario Creation Pipeline[/bold]")
     console.print("=" * 60)
@@ -487,6 +709,9 @@ async def run_phase_3_generation(config, force_regenerate=False):
     else:
         console.print("🧠 [cyan]Smart resume: Checking for completed scenarios...[/cyan]")
     
+    if max_concurrent > 1:
+        console.print(f"🚀 [bold blue]Parallel mode: {max_concurrent} concurrent scenario generations[/bold blue]")
+    
     console.print("🎯 Creating evaluation scenarios with 3 Elite Models...")
     
     # Task categories from enum
@@ -494,105 +719,156 @@ async def run_phase_3_generation(config, force_regenerate=False):
     
     # Calculate target instances per project based on configuration
     total_projects_all_languages = len(completed_projects)
-    target_instances_per_project = config.benchmark.total_instances // (total_projects_all_languages * len(task_categories))
-    if target_instances_per_project == 0:
-        target_instances_per_project = 1  # At least 1 instance per category per project
+    target_instances_per_project = max(1, config.benchmark.total_instances // total_projects_all_languages // len(task_categories))
     
-    console.print(f"🎯 Target: {target_instances_per_project} instances per task category per project")
-    console.print(f"📊 Total target: {len(completed_projects)} projects × {len(task_categories)} categories × {target_instances_per_project} = {len(completed_projects) * len(task_categories) * target_instances_per_project} scenarios")
+    console.print(f"📋 Target: {target_instances_per_project} scenarios per project per category")
+    console.print(f"🎯 Total scenarios to generate: {len(completed_projects)} projects × {len(task_categories)} categories × {target_instances_per_project} = {len(completed_projects) * len(task_categories) * target_instances_per_project}")
     
-    total_scenarios_generated = 0
+    # Prepare scenario generation tasks
+    scenario_tasks = []
     scenarios_skipped = 0
     
-    for i, (project_dir, project_data) in enumerate(completed_projects, 1):
-        spec = project_data['specification']
-        console.print(f"\n🔨 [bold cyan]Project {i}/{len(completed_projects)}: {spec['name']} ({spec['language']})[/bold cyan]")
-        
-        for j, task_category in enumerate(task_categories, 1):
-            console.print(f"   📋 [bold cyan]Task {j}/{len(task_categories)}: {task_category.value}[/bold cyan]")
-            
-            # Check if scenarios already exist (unless force regeneration)
+    for project_dir, project_data in completed_projects:
+        for task_category in task_categories:
+            # Check if scenarios already exist for this project+category
             scenario_file = scenarios_dir / f"{project_dir.name}_{task_category.value}.json"
             
             if not force_regenerate and scenario_file.exists():
-                with open(scenario_file, 'r') as f:
-                    existing_scenarios = json.load(f)
-                if len(existing_scenarios.get('scenarios', [])) >= target_instances_per_project:
-                    existing_count = len(existing_scenarios['scenarios'])
-                    console.print(f"      ✅ [green]Already completed![/green] {existing_count} scenarios")
-                    console.print(f"      ⏭️  [dim]Skipping (use --force to regenerate)[/dim]")
-                    scenarios_skipped += existing_count
-                    continue
-                else:
-                    console.print(f"      ⚠️  [yellow]Incomplete - found {len(existing_scenarios.get('scenarios', []))} scenarios, need {target_instances_per_project}[/yellow]")
+                console.print(f"✅ [green]{project_dir.name} - {task_category.value} scenarios already exist[/green]")
+                scenarios_skipped += 1
+                continue
+            
+            scenario_tasks.append({
+                'project_dir': project_dir,
+                'project_data': project_data,
+                'task_category': task_category,
+                'target_instances': target_instances_per_project,
+                'scenario_file': scenario_file
+            })
+    
+    if not scenario_tasks:
+        console.print("✅ All scenarios already completed! Use --force to regenerate.")
+        return
+    
+    console.print(f"🎯 Processing {len(scenario_tasks)} scenario generation tasks ({scenarios_skipped} skipped)")
+    
+    # Semaphore to limit concurrent scenario generation
+    semaphore = Semaphore(max_concurrent)
+    
+    # Statistics tracking
+    total_scenarios_generated = 0
+    tasks_completed = 0
+    
+    async def generate_scenarios_for_category(task_info, task_index):
+        """Generate scenarios for one project+category combination"""
+        async with semaphore:  # Acquire semaphore slot
+            project_dir = task_info['project_dir']
+            project_data = task_info['project_data']
+            task_category = task_info['task_category']
+            target_instances = task_info['target_instances']
+            scenario_file = task_info['scenario_file']
+            
+            project_name = project_data['specification']['name']
+            category_name = task_category.value
             
             try:
-                console.print(f"      🎯 Target: {target_instances_per_project} scenarios")
-                console.print(f"      🤖 3 Elite Models working...")
+                console.print(f"🔨 [bold cyan]Starting {task_index}/{len(scenario_tasks)}: {project_name} - {category_name}[/bold cyan]")
                 
                 # Start timing
                 import time
                 start_time = time.time()
                 
-                with console.status(f"[bold green]🏭 Generating {task_category.value} scenarios..."):
-                    scenarios = await generator.generate_task_scenarios(
-                        project_dir=project_dir,
-                        project_data=project_data,
-                        task_category=task_category,
-                        num_instances=target_instances_per_project
-                    )
+                # Generate scenarios for this project+category
+                scenarios = await generator.generate_task_scenarios(
+                    project_dir, project_data, task_category, target_instances
+                )
                 
                 generation_time = time.time() - start_time
-                avg_context_length = sum(s.get('context_length', 0) for s in scenarios) // len(scenarios) if scenarios else 0
                 
-                console.print(f"      ⏱️  Generated in {generation_time:.1f}s")
-                console.print(f"      📊 Avg context: {avg_context_length:,} chars")
-                
-                # Save scenarios
+                # Save scenarios to file
                 scenario_data = {
-                    "project_info": {
-                        "name": spec['name'],
-                        "language": spec['language'],
-                        "domain": spec['domain'],
-                        "complexity": spec['complexity']
-                    },
-                    "task_category": task_category.value,
-                    "scenarios": scenarios,
-                    "generation_stats": {
-                        "instances_count": len(scenarios),
-                        "generation_time_seconds": round(generation_time, 2),
-                        "avg_context_length": avg_context_length
-                    }
+                    'project_name': project_name,
+                    'project_id': project_dir.name,
+                    'task_category': category_name,
+                    'generated_timestamp': time.time(),
+                    'generation_time': generation_time,
+                    'scenarios': scenarios
                 }
                 
                 with open(scenario_file, 'w') as f:
                     json.dump(scenario_data, f, indent=2)
                 
-                console.print(f"      ✅ [bold green]Success![/bold green] {len(scenarios)} scenarios, {avg_context_length:,} avg chars")
-                total_scenarios_generated += len(scenarios)
+                console.print(f"   ✅ [green]Completed {project_name} - {category_name}![/green] {len(scenarios)} scenarios in {generation_time:.1f}s")
+                
+                return {
+                    'success': True,
+                    'scenarios_generated': len(scenarios),
+                    'project_name': project_name,
+                    'category': category_name,
+                    'generation_time': generation_time
+                }
                 
             except Exception as e:
-                console.print(f"      ❌ [bold red]Failed to generate {task_category.value}: {e}[/bold red]")
-                import traceback
-                console.print(f"      🔍 Debug: {traceback.format_exc()}")
-                continue
+                console.print(f"   ❌ [red]Failed {project_name} - {category_name}: {str(e)}[/red]")
+                return {
+                    'success': False,
+                    'error': str(e),
+                    'project_name': project_name,
+                    'category': category_name
+                }
     
-    console.print(f"\n🎉 [bold green]Phase 3 Complete![/bold green]")
-    console.print(f"   📊 Generated: {total_scenarios_generated} scenarios")
-    console.print(f"   ⏭️  Skipped: {scenarios_skipped} already completed scenarios")
-    console.print(f"   📁 Location: {scenarios_dir}")
-    console.print(f"   🎯 8 task categories across {len(completed_projects)} projects")
+    # Execute all scenario generation tasks in parallel
+    console.print(f"\n🚀 [bold]Starting parallel scenario generation for {len(scenario_tasks)} tasks...[/bold]")
     
-    if scenarios_skipped > 0 and not force_regenerate:
-        console.print(f"\n💡 [dim]Tip: Use --force to regenerate all scenarios[/dim]")
+    # Create asyncio tasks
+    tasks = []
+    for i, task_info in enumerate(scenario_tasks, 1):
+        task = generate_scenarios_for_category(task_info, i)
+        tasks.append(task)
+    
+    # Wait for all tasks to complete
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    
+    # Process results
+    successful_tasks = []
+    failed_tasks = []
+    
+    for result in results:
+        if isinstance(result, Exception):
+            failed_tasks.append(f"Exception: {str(result)}")
+        elif result and result['success']:
+            successful_tasks.append(result)
+            total_scenarios_generated += result['scenarios_generated']
+            tasks_completed += 1
+        else:
+            failed_tasks.append(f"{result['project_name']} - {result['category']}" if result else "Unknown task")
+    
+    # Final summary
+    console.print(f"\n📊 [bold]Phase 3 Summary:[/bold]")
+    console.print(f"   ✅ Completed: {tasks_completed} scenario generation tasks")
+    console.print(f"   ⚠️  Skipped: {scenarios_skipped} tasks (already done)")
+    console.print(f"   ❌ Failed: {len(failed_tasks)} tasks")
+    console.print(f"   🎯 Total scenarios generated: {total_scenarios_generated}")
+    console.print(f"   📁 Scenarios saved to: {scenarios_dir}")
+    
+    if failed_tasks:
+        console.print(f"\n⚠️  [yellow]Failed tasks:[/yellow]")
+        for failed in failed_tasks[:5]:  # Show first 5 failures
+            console.print(f"   • {failed}")
+        if len(failed_tasks) > 5:
+            console.print(f"   • ... and {len(failed_tasks) - 5} more")
+    
+    console.print(f"\n💡 [dim]Tip: Use --force to regenerate all scenarios[/dim]")
 
 
-async def run_phase_4_generation(config, force_regenerate=False):
-    """Run Phase 4: Automated Test-Driven Validation Framework"""
+async def run_phase_4_generation(config, force_regenerate=False, max_concurrent=3):
+    """Run Phase 4: Automated Test-Driven Validation Framework with parallel processing"""
     from .generation.validation_framework import AutomatedValidator
     from .core.task import TaskCategory
     from pathlib import Path
     import json
+    import asyncio
+    from asyncio import Semaphore
     
     console.print("\n🧪 [bold]Automated Test-Driven Validation Framework[/bold]")
     console.print("=" * 60)
@@ -618,67 +894,149 @@ async def run_phase_4_generation(config, force_regenerate=False):
     else:
         console.print("🧠 [cyan]Smart resume: Checking for completed test suites...[/cyan]")
     
+    if max_concurrent > 1:
+        console.print(f"🚀 [bold blue]Parallel mode: {max_concurrent} concurrent test suite generations[/bold blue]")
+    
     console.print("🎯 Creating automated test suites for evaluation...")
     console.print(f"⚖️  Evaluation weights: Functional (40%) | Agent Metrics (30%) | Quality (20%) | Style (10%)")
     
-    total_test_suites_generated = 0
+    # Prepare test suite generation tasks
+    validation_tasks = []
     test_suites_skipped = 0
     
-    for i, scenario_file in enumerate(scenario_files, 1):
-        console.print(f"\n🔨 [bold]File {i}/{len(scenario_files)}: {scenario_file.stem}[/bold]")
-        
+    for scenario_file in scenario_files:
         # Check if test suite already exists
-        test_suite_file = validator.test_suites_dir / f"{scenario_file.stem}_tests.json"
-        if test_suite_file.exists() and not force_regenerate:
-            console.print(f"   ⏭️  [dim]Test suite exists - skipping[/dim]")
+        validation_dir = Path(config.data.output_dir) / "validation" / "test_suites"
+        validation_dir.mkdir(parents=True, exist_ok=True)
+        
+        test_suite_file = validation_dir / f"{scenario_file.stem}_test_suite.json"
+        
+        if not force_regenerate and test_suite_file.exists():
+            console.print(f"✅ [green]{scenario_file.name} - test suite already exists[/green]")
             test_suites_skipped += 1
             continue
         
-        try:
-            # Load scenario to get task category
-            with open(scenario_file, 'r') as f:
-                scenario_data = json.load(f)
-            
-            task_category_str = scenario_data['task_category']
-            task_category = TaskCategory(task_category_str)
-            scenario_count = len(scenario_data['scenarios'])
-            
-            console.print(f"   📋 Task: {task_category.value}")
-            console.print(f"   🎯 Scenarios: {scenario_count}")
-            console.print(f"   🧪 Generating automated test suites...")
-            
-            start_time = time.time()
-            
-            # Generate test suites for each scenario in the file
-            total_scenarios_in_file = 0
-            for scenario in scenario_data['scenarios']:
-                test_suite = await validator.generate_test_suite(scenario)
-                total_scenarios_in_file += 1
-            
-            generation_time = time.time() - start_time
-            
-            console.print(f"   ⏱️  Generated in {generation_time:.1f}s")
-            console.print(f"   📊 Test Categories: Compilation, Unit, Integration, Performance, Security")
-            console.print(f"   ✅ [bold green]Success![/bold green] {total_scenarios_in_file} test suites generated")
-            
-            total_test_suites_generated += total_scenarios_in_file
-            
-        except Exception as e:
-            console.print(f"   ❌ [bold red]Failed to generate test suites: {e}[/bold red]")
-            import traceback
-            console.print(f"   🔍 Debug: {traceback.format_exc()}")
-            continue
+        validation_tasks.append({
+            'scenario_file': scenario_file,
+            'test_suite_file': test_suite_file
+        })
     
-    console.print(f"\n🎉 [bold green]Phase 4 Complete![/bold green]")
-    console.print(f"   📊 Generated: {total_test_suites_generated} automated test suites")
-    console.print(f"   ⏭️  Skipped: {test_suites_skipped} already completed files")
-    console.print(f"   📁 Location: {validator.test_suites_dir}")
-    console.print(f"   🧪 Test-Driven: No LLM bias - 100% automated validation")
-    console.print(f"   📈 Novel Metrics: ACS, DTA, MMR, CFRD, IDC, ICU algorithms")
-    console.print(f"   ⚖️  Evaluation Ready: Functional (40%) + Agent Metrics (30%) + Quality (20%) + Style (10%)")
+    if not validation_tasks:
+        console.print("✅ All test suites already completed! Use --force to regenerate.")
+        return
     
-    if test_suites_skipped > 0 and not force_regenerate:
-        console.print(f"\n💡 [dim]Tip: Use --force to regenerate all test suites[/dim]")
+    console.print(f"🎯 Processing {len(validation_tasks)} test suite generation tasks ({test_suites_skipped} skipped)")
+    
+    # Semaphore to limit concurrent test suite generation
+    semaphore = Semaphore(max_concurrent)
+    
+    # Statistics tracking
+    total_test_suites_generated = 0
+    tasks_completed = 0
+    
+    async def generate_test_suite_for_scenarios(task_info, task_index):
+        """Generate test suite for one scenario file"""
+        async with semaphore:  # Acquire semaphore slot
+            scenario_file = task_info['scenario_file']
+            test_suite_file = task_info['test_suite_file']
+            
+            try:
+                console.print(f"🔨 [bold cyan]Starting {task_index}/{len(validation_tasks)}: {scenario_file.name}[/bold cyan]")
+                
+                # Load scenarios
+                with open(scenario_file, 'r') as f:
+                    scenario_data = json.load(f)
+                
+                scenarios = scenario_data.get('scenarios', [])
+                if not scenarios:
+                    console.print(f"   ⚠️  [yellow]No scenarios found in {scenario_file.name}[/yellow]")
+                    return {'success': True, 'test_suites_generated': 0, 'scenario_file': scenario_file.name}
+                
+                # Start timing
+                import time
+                start_time = time.time()
+                
+                # Generate test suites for all scenarios in this file
+                test_suites = []
+                for scenario in scenarios:
+                    test_suite = await validator.generate_test_suite(scenario)
+                    test_suites.append({
+                        'scenario_id': scenario.get('id', 'unknown'),
+                        'test_suite': test_suite.to_dict()  # Convert to dict for JSON serialization
+                    })
+                
+                generation_time = time.time() - start_time
+                
+                # Save test suites
+                test_suite_data = {
+                    'source_file': scenario_file.name,
+                    'generated_timestamp': time.time(),
+                    'generation_time': generation_time,
+                    'test_suites': test_suites
+                }
+                
+                with open(test_suite_file, 'w') as f:
+                    json.dump(test_suite_data, f, indent=2)
+                
+                console.print(f"   ✅ [green]Completed {scenario_file.name}![/green] {len(test_suites)} test suites in {generation_time:.1f}s")
+                
+                return {
+                    'success': True,
+                    'test_suites_generated': len(test_suites),
+                    'scenario_file': scenario_file.name,
+                    'generation_time': generation_time
+                }
+                
+            except Exception as e:
+                console.print(f"   ❌ [red]Failed {scenario_file.name}: {str(e)}[/red]")
+                return {
+                    'success': False,
+                    'error': str(e),
+                    'scenario_file': scenario_file.name
+                }
+    
+    # Execute all test suite generation tasks in parallel
+    console.print(f"\n🚀 [bold]Starting parallel test suite generation for {len(validation_tasks)} tasks...[/bold]")
+    
+    # Create asyncio tasks
+    tasks = []
+    for i, task_info in enumerate(validation_tasks, 1):
+        task = generate_test_suite_for_scenarios(task_info, i)
+        tasks.append(task)
+    
+    # Wait for all tasks to complete
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    
+    # Process results
+    successful_tasks = []
+    failed_tasks = []
+    
+    for result in results:
+        if isinstance(result, Exception):
+            failed_tasks.append(f"Exception: {str(result)}")
+        elif result and result['success']:
+            successful_tasks.append(result)
+            total_test_suites_generated += result['test_suites_generated']
+            tasks_completed += 1
+        else:
+            failed_tasks.append(result['scenario_file'] if result else "Unknown task")
+    
+    # Final summary
+    console.print(f"\n📊 [bold]Phase 4 Summary:[/bold]")
+    console.print(f"   ✅ Completed: {tasks_completed} test suite generation tasks")
+    console.print(f"   ⚠️  Skipped: {test_suites_skipped} tasks (already done)")
+    console.print(f"   ❌ Failed: {len(failed_tasks)} tasks")
+    console.print(f"   🧪 Total test suites generated: {total_test_suites_generated}")
+    console.print(f"   📁 Test suites saved to: {Path(config.data.output_dir) / 'validation' / 'test_suites'}")
+    
+    if failed_tasks:
+        console.print(f"\n⚠️  [yellow]Failed tasks:[/yellow]")
+        for failed in failed_tasks[:5]:  # Show first 5 failures
+            console.print(f"   • {failed}")
+        if len(failed_tasks) > 5:
+            console.print(f"   • ... and {len(failed_tasks) - 5} more")
+    
+    console.print(f"\n💡 [dim]Tip: Use --force to regenerate all test suites[/dim]")
 
 
 if __name__ == '__main__':

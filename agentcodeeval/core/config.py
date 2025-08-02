@@ -32,9 +32,7 @@ class APIConfig:
 class DataConfig:
     """Configuration for synthetic data generation and storage"""
     # Local storage
-    cache_dir: str = "./data/cache"
     output_dir: str = "./data/output"
-    benchmark_dir: str = "./data/benchmark"
     generated_dir: str = "./data/generated"
     templates_dir: str = "./data/templates"
     
@@ -166,8 +164,6 @@ class Config:
         self.api.huggingface_token = os.getenv("HUGGINGFACE_TOKEN")
         
         # Override data paths if set
-        if os.getenv("ACE_CACHE_DIR"):
-            self.data.cache_dir = os.getenv("ACE_CACHE_DIR")
         if os.getenv("ACE_OUTPUT_DIR"):
             self.data.output_dir = os.getenv("ACE_OUTPUT_DIR")
     
@@ -219,16 +215,14 @@ class Config:
                 'default_model_google': self.api.default_model_google,
             },
             'data': {
-                'stack_v2_path': self.data.stack_v2_path,
-                'starcoder_data_path': self.data.starcoder_data_path,
-                'codenet_path': self.data.codenet_path,
-                'cache_dir': self.data.cache_dir,
                 'output_dir': self.data.output_dir,
-                'benchmark_dir': self.data.benchmark_dir,
-                'min_stars': self.data.min_stars,
-                'min_files': self.data.min_files,
-                'max_files': self.data.max_files,
+                'generated_dir': self.data.generated_dir,
+                'templates_dir': self.data.templates_dir,
                 'supported_languages': self.data.supported_languages,
+                'min_files_per_project': self.data.min_files_per_project,
+                'max_files_per_project': self.data.max_files_per_project,
+                'projects_per_language': self.data.projects_per_language,
+                'complexity_distribution': self.data.complexity_distribution,
                 'min_complexity_score': self.data.min_complexity_score,
                 'max_complexity_score': self.data.max_complexity_score,
                 'min_documentation_ratio': self.data.min_documentation_ratio,
@@ -257,15 +251,11 @@ class Config:
     def _create_directories(self):
         """Create necessary directories"""
         directories = [
-            self.data.cache_dir,
             self.data.output_dir,
-            self.data.benchmark_dir,
-            f"{self.data.cache_dir}/repositories",
-            f"{self.data.cache_dir}/analysis",
-            f"{self.data.output_dir}/tasks",
-            f"{self.data.output_dir}/evaluations",
-            f"{self.data.benchmark_dir}/instances",
-            f"{self.data.benchmark_dir}/references"
+            self.data.generated_dir,
+            f"{self.data.output_dir}/scenarios",
+            f"{self.data.output_dir}/validation",
+            f"{self.data.output_dir}/references"
         ]
         
         for directory in directories:
@@ -293,9 +283,8 @@ class Config:
             
         # Check directory permissions
         try:
-            Path(self.data.cache_dir).mkdir(parents=True, exist_ok=True)
             Path(self.data.output_dir).mkdir(parents=True, exist_ok=True)
-            Path(self.data.benchmark_dir).mkdir(parents=True, exist_ok=True)
+            Path(self.data.generated_dir).mkdir(parents=True, exist_ok=True)
         except PermissionError as e:
             errors.append(f"Permission error creating directories: {e}")
             

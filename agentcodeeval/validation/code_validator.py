@@ -255,7 +255,7 @@ class CodeValidator:
     
     async def _write_code_files(self, code_files: Dict[str, str], 
                               target_dir: str, extension: str):
-        """Write code files to target directory"""
+        """Write code files to target directory with proper directory structure"""
         
         for filename, code in code_files.items():
             # Ensure proper extension
@@ -263,6 +263,10 @@ class CodeValidator:
                 filename = f"{Path(filename).stem}{extension}"
             
             file_path = Path(target_dir) / filename
+            
+            # Create parent directories if they don't exist
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            
             file_path.write_text(code, encoding='utf-8')
 
     async def _init_go_module(self, project_dir: str):

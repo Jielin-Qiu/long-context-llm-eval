@@ -1,30 +1,30 @@
 {
   "metadata": {
-    "test_timestamp": "2025-08-01 09:51:37",
+    "test_timestamp": "2025-08-01 12:02:03",
     "model_tested": "openai-o3",
     "total_categories": 8,
     "successful_categories": 8,
-    "total_time_seconds": 255.30890607833862
+    "total_time_seconds": 728.2977561950684
   },
   "category_results": {
     "bug_investigation": {
       "success": true,
-      "total_score": 0.4005000000000001,
-      "functional_score": 0.26,
-      "agent_metrics_score": 0.195,
-      "quality_score": 1.0,
-      "style_score": 0.38,
-      "generation_time": 35.559171199798584,
+      "total_score": 0.35720192307692306,
+      "functional_score": 0.22,
+      "agent_metrics_score": 0.29067307692307687,
+      "quality_score": 0.66,
+      "style_score": 0.5,
+      "generation_time": 105.58503794670105,
       "scenario_title": "File Upload Validation Bypass Bug Investigation"
     },
     "architectural_understanding": {
       "success": true,
-      "total_score": 0.459,
+      "total_score": 0.5122666666666666,
       "functional_score": 0.26,
-      "agent_metrics_score": 0.323,
-      "quality_score": 0.9924999999999999,
-      "style_score": 0.596,
-      "generation_time": 31.67168688774109,
+      "agent_metrics_score": 0.542,
+      "quality_score": 0.9550000000000001,
+      "style_score": 0.5466666666666666,
+      "generation_time": 88.21370792388916,
       "scenario_title": "Analyze and Document Web Application Architecture for New Team Member Onboarding"
     },
     "security_analysis": {
@@ -34,37 +34,37 @@
       "agent_metrics_score": 0.27189692982456143,
       "quality_score": 0.985,
       "style_score": 0.532,
-      "generation_time": 57.87287187576294,
+      "generation_time": 201.79373002052307,
       "scenario_title": "Security Configuration Audit and Vulnerability Assessment"
     },
     "feature_implementation": {
       "success": true,
-      "total_score": 0.4027625,
-      "functional_score": 0.22,
-      "agent_metrics_score": 0.21520833333333333,
-      "quality_score": 0.985,
-      "style_score": 0.532,
-      "generation_time": 36.00156807899475,
+      "total_score": 0.41495000000000004,
+      "functional_score": 0.26,
+      "agent_metrics_score": 0.21916666666666665,
+      "quality_score": 1.0,
+      "style_score": 0.452,
+      "generation_time": 164.65172410011292,
       "scenario_title": "Implement User Profile Picture Upload with Validation and Admin Management"
     },
     "cross_file_refactoring": {
       "success": true,
-      "total_score": 0.4399,
-      "functional_score": 0.26,
-      "agent_metrics_score": 0.30466666666666664,
-      "quality_score": 0.9924999999999999,
-      "style_score": 0.46,
-      "generation_time": 29.11928915977478,
+      "total_score": 0.449375,
+      "functional_score": 0.22,
+      "agent_metrics_score": 0.37058333333333326,
+      "quality_score": 0.985,
+      "style_score": 0.532,
+      "generation_time": 62.76026391983032,
       "scenario_title": "Extract Common Database Operations into Shared Repository Pattern"
     },
     "code_comprehension": {
       "success": true,
-      "total_score": 0.41237980769230775,
+      "total_score": 0.5155071428571429,
       "functional_score": 0.26,
-      "agent_metrics_score": 0.18229166666666666,
-      "quality_score": 1.0,
-      "style_score": 0.536923076923077,
-      "generation_time": 16.17984104156494,
+      "agent_metrics_score": 0.5575000000000001,
+      "quality_score": 0.925,
+      "style_score": 0.5925714285714285,
+      "generation_time": 46.24379372596741,
       "scenario_title": "Cross-Module Data Flow Analysis for User File Upload Validation"
     },
     "integration_testing": {
@@ -74,22 +74,22 @@
       "agent_metrics_score": 0.27166666666666667,
       "quality_score": 0.985,
       "style_score": 0.532,
-      "generation_time": 27.338895082473755,
+      "generation_time": 41.0235869884491,
       "scenario_title": "Integration Testing for File Upload with Database and Validation Pipeline"
     },
     "multi_session_development": {
       "success": true,
-      "total_score": 0.4464,
+      "total_score": 0.5107054085155351,
       "functional_score": 0.26,
-      "agent_metrics_score": 0.34800000000000003,
-      "quality_score": 1.0,
-      "style_score": 0.38,
-      "generation_time": 21.295246124267578,
+      "agent_metrics_score": 0.5378787878787878,
+      "quality_score": 0.96,
+      "style_score": 0.5334177215189874,
+      "generation_time": 17.72144103050232,
       "scenario_title": "Implement User Authentication System with Session Management"
     }
   },
   "summary": {
     "success_rate": 1.0,
-    "average_score": 0.4250514233299596
+    "average_score": 0.4499344025079546
   }
 }

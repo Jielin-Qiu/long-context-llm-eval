@@ -1,0 +1,58 @@
+{
+  "summary": {
+    "total_scenarios": 6,
+    "successful_generations": 6,
+    "likely_fallbacks": 0,
+    "success_rate": 1.0
+  },
+  "results": [
+    {
+      "category": "architectural_understanding",
+      "title": "Analyze and Document Web Application Arc",
+      "success": true,
+      "files": 3,
+      "total_chars": 5282,
+      "generation_time": 71.72325491905212
+    },
+    {
+      "category": "architectural_understanding",
+      "title": "Analyze and Document Web Application Arc",
+      "success": true,
+      "files": 10,
+      "total_chars": 5242,
+      "generation_time": 29.219806909561157
+    },
+    {
+      "category": "feature_implementation",
+      "title": "Implement User Profile Picture Upload wi",
+      "success": true,
+      "files": 5,
+      "total_chars": 8464,
+      "generation_time": 141.83068013191223
+    },
+    {
+      "category": "feature_implementation",
+      "title": "Implement User Profile Management with F",
+      "success": true,
+      "files": 6,
+      "total_chars": 9974,
+      "generation_time": 41.38809895515442
+    },
+    {
+      "category": "code_comprehension",
+      "title": "Cross-Module Data Flow Analysis for User",
+      "success": true,
+      "files": 2,
+      "total_chars": 275,
+      "generation_time": 12.019274950027466
+    },
+    {
+      "category": "code_comprehension",
+      "title": "Analyze Data Flow and Validation Pipelin",
+      "success": true,
+      "files": 2,
+      "total_chars": 649,
+      "generation_time": 19.290436029434204
+    }
+  ]
+}
